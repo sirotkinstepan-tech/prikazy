@@ -1,3 +1,5 @@
+name: prikazy
+
 services:
   app:
     build:
@@ -7,7 +9,7 @@ services:
     env_file:
       - .env
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - .:/app
     depends_on:
@@ -32,15 +34,15 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: ocr
-      POSTGRES_USER: ocr
-      POSTGRES_PASSWORD: ocr
+      POSTGRES_DB: prikazy
+      POSTGRES_USER: prikazy
+      POSTGRES_PASSWORD: prikazy
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ocr -d ocr"]
+      test: ["CMD-SHELL", "pg_isready -U prikazy -d prikazy"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -48,7 +50,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "6380:6379"
 
   minio:
     image: minio/minio
@@ -57,12 +59,11 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9002:9000"
+      - "9003:9001"
     volumes:
       - minio_data:/data
 
 volumes:
   postgres_data:
   minio_data:
-

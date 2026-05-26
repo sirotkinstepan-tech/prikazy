@@ -45,9 +45,11 @@ fi
 if [[ ! -f "$ROOT/.env.local" ]]; then
   cp "$ROOT/.env.example" "$ROOT/.env.local"
   sed -i '' \
-    -e 's|@postgres:5432|@localhost:5432|g' \
-    -e 's|redis://redis:|redis://localhost:|g' \
-    -e 's|http://minio:9000|http://localhost:9000|g' \
+    -e 's|@postgres:5432|@localhost:5433|g' \
+    -e 's|redis://redis:|redis://localhost:6380|g' \
+    -e 's|redis://localhost:6379|redis://localhost:6380|g' \
+    -e 's|http://minio:9000|http://localhost:9002|g' \
+    -e 's|http://localhost:9000|http://localhost:9002|g' \
     "$ROOT/.env.local"
 fi
 

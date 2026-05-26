@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "ocr-document-platform"
+    app_name: str = "prikazy"
     app_env: str = "local"
     app_debug: bool = False
     log_level: str = "INFO"
@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
 
     database_url: str = Field(
-        default="postgresql+psycopg://ocr:ocr@localhost:5432/ocr",
+        default="postgresql+psycopg://prikazy:prikazy@localhost:5433/prikazy",
         validation_alias="DATABASE_URL",
     )
     celery_broker_url: str = "redis://localhost:6379/0"

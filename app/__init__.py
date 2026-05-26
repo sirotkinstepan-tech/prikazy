@@ -1,1 +1,1 @@
-"""OCR document platform application package."""
+"""Prikazy application package."""

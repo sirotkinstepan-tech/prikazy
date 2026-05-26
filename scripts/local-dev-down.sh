@@ -6,7 +6,7 @@ LOCAL="$ROOT/.local"
 PG_BIN="$LOCAL/staging/pgsql/bin"
 REDIS_BIN="/tmp/redis-7.2.7/src"
 PID_DIR="$LOCAL/pids"
-PGDATA="$LOCAL/data/postgres"
+PGDATA="$LOCAL/data/postgres-prikazy"
 
 stop_pidfile() {
   local name="$1"
@@ -27,7 +27,7 @@ stop_pidfile worker
 stop_pidfile minio
 
 if [[ -f "$PID_DIR/redis.pid" ]]; then
-  "$REDIS_BIN/redis-cli" -p 6379 shutdown nosave >/dev/null 2>&1 || true
+  "$REDIS_BIN/redis-cli" -p 6380 shutdown nosave >/dev/null 2>&1 || true
   rm -f "$PID_DIR/redis.pid"
   echo "Stopped redis"
 fi

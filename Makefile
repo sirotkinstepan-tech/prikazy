@@ -9,7 +9,7 @@ env:
 	@test -f .env || cp .env.example .env
 
 up: env
-	docker compose up --build
+	DOCKER_BUILDKIT=0 docker compose up --build
 
 down:
 	docker compose down
@@ -30,17 +30,17 @@ logs:
 	docker compose logs -f app worker
 
 health:
-	curl http://localhost:8000/health
+	curl http://localhost:8001/health
 
 upload:
-	curl -X POST http://localhost:8000/documents/upload \
+	curl -X POST http://localhost:8001/documents/upload \
 		-F "tenant_id=$(TENANT_ID)" \
 		-F "doc_type=$(DOC_TYPE)" \
 		-F "counterparty_name=$(COUNTERPARTY)" \
 		-F "file=@./$(SAMPLE)"
 
 search:
-	curl "http://localhost:8000/search?tenant_id=$(TENANT_ID)&q=$(DOC_TYPE)"
+	curl "http://localhost:8001/search?tenant_id=$(TENANT_ID)&q=$(DOC_TYPE)"
 
 test:
 	pytest

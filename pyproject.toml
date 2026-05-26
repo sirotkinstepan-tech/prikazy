@@ -1,7 +1,7 @@
 [project]
-name = "ocr-document-platform"
+name = "prikazy"
 version = "0.1.0"
-description = "Production-oriented MVP for uploading, OCR-processing, and searching documents."
+description = "Платформа загрузки, OCR-обработки и поиска приказов и документов."
 requires-python = ">=3.12"
 dependencies = [
   "alembic",

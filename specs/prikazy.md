@@ -1,10 +1,10 @@
-# OCR Document Platform MVP Specification
+# Prikazy MVP Specification
 
 ## 0. Repository Status
 
-The repository is a new empty git project. No existing application stack, source code, migrations, tests, or deployment files are present.
+Отдельный репозиторий **prikazy** (GitHub: `sirotkinstepan-tech/prikazy`). Не связан с проектом «База данных» / `ocr-document-platform`.
 
-Decision: build the MVP from scratch using the requested default backend stack.
+Локальные порты по умолчанию смещены (API `8001`, PostgreSQL `5433`, Redis `6380`, MinIO `9002`/`9003`), чтобы оба проекта можно было запускать на одной машине.
 
 ## 1. Architecture
 
@@ -105,7 +105,7 @@ app/
 alembic/
   versions/
 specs/
-  ocr-document-platform.md
+  prikazy.md
 tests/
   test_upload_flow.py
   test_ocr_result_persistence.py
@@ -335,7 +335,7 @@ Response:
 ```json
 {
   "status": "ok",
-  "service": "ocr-document-platform"
+  "service": "prikazy"
 }
 ```
 

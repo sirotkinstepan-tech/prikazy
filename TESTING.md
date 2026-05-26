@@ -34,13 +34,13 @@ make health
 Expected response:
 
 ```json
-{"status":"ok","service":"ocr-document-platform","environment":"local"}
+{"status":"ok","service":"prikazy","environment":"local"}
 ```
 
 The interactive API docs are available at:
 
 ```text
-http://localhost:8000/docs
+http://localhost:8001/docs
 ```
 
 ## 3. Where To Put Test Files
@@ -92,7 +92,7 @@ make search DOC_TYPE=invoice
 You can also list documents directly:
 
 ```bash
-curl "http://localhost:8000/documents?tenant_id=00000000-0000-0000-0000-000000000001"
+curl "http://localhost:8001/documents?tenant_id=00000000-0000-0000-0000-000000000001"
 ```
 
 ## 6. Run Automated Tests
