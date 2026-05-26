@@ -1,0 +1,51 @@
+[project]
+name = "ocr-document-platform"
+version = "0.1.0"
+description = "Production-oriented MVP for uploading, OCR-processing, and searching documents."
+requires-python = ">=3.12"
+dependencies = [
+  "alembic",
+  "boto3",
+  "celery",
+  "fastapi",
+  "openpyxl",
+  "psycopg[binary]",
+  "pydantic-settings",
+  "python-docx",
+  "python-multipart",
+  "redis",
+  "sqlalchemy",
+  "uvicorn[standard]",
+]
+
+[project.optional-dependencies]
+dev = [
+  "black",
+  "httpx",
+  "pytest",
+  "pytest-cov",
+  "ruff",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
