@@ -1,6 +1,6 @@
 # Prikazy
 
-Самостоятельный проект для загрузки PDF и сканов приказов, хранения файлов в S3-совместимом хранилище, асинхронной OCR-обработки и полнотекстового поиска через PostgreSQL.
+Самостоятельный проект для загрузки и хранения корпоративных документов: приказы, договоры (внутренние и внешние), ЛНА. Файлы — в S3-совместимом хранилище, асинхронная OCR-обработка и полнотекстовый поиск через PostgreSQL.
 
 Отдельный репозиторий и инфраструктура — не связан с проектом «База данных» / `ocr-document-platform`.
 
@@ -10,7 +10,7 @@ MVP по спецификации `specs/prikazy.md`.
 
 Реализовано:
 
-- FastAPI: загрузка, чтение, повторная обработка, OCR, поиск.
+- FastAPI: загрузка, чтение, повторная обработка, OCR, поиск, скачивание и веб-просмотр.
 - SQLAlchemy и миграции Alembic.
 - Партиционированные таблицы `documents` и `ocr_results`.
 - Полнотекстовый поиск PostgreSQL (`websearch_to_tsquery`, `ts_rank`, GIN).
@@ -20,15 +20,38 @@ MVP по спецификации `specs/prikazy.md`.
 - События обработки, `GET /health`.
 - Docker Compose: API, worker, PostgreSQL, Redis, MinIO.
 
-## Порты (чтобы не конфликтовать с «База данных»)
+## Разделы документов
+
+Документы делятся на разделы через поле `doc_type`. Список разделов:
+
+| `doc_type` | Раздел |
+|------------|--------|
+| `prikaz` | Приказы |
+| `internal_contract` | Договоры внутренние |
+| `external_contract` | Договоры внешние |
+| `lna` | ЛНА (локальные нормативные акты) |
+
+Справочник разделов: `GET /sections`.
+
+При загрузке `doc_type` обязателен. Без фильтра по разделу список и поиск работают **по всем разделам сразу** — удобно для общего поиска и будущей LLM-интеграции.
+
+## Порты на локальной машине
+
+Смещены относительно стандартных, чтобы не конфликтовать с проектом «База данных» / `ocr-document-platform`.
 
 | Сервис     | URL / порт на хосте   |
 |-----------|------------------------|
 | API       | http://localhost:8001  |
+| Swagger   | http://localhost:8001/docs |
+| Разделы   | http://localhost:8001/sections |
+| Портал    | http://localhost:8001/portal/ |
+| Просмотр PDF | http://localhost:8001/viewer |
 | PostgreSQL| localhost:5433         |
 | Redis     | localhost:6380         |
 | MinIO API | http://localhost:9002  |
 | MinIO UI  | http://localhost:9003  |
+
+В `.env` задайте `PUBLIC_API_BASE_URL=http://localhost:8001` — по этому адресу API отдаёт абсолютные `preview_url`, `download_url` и `viewer_url` в ответах `GET /documents`.
 
 ## Локальный запуск
 
@@ -49,21 +72,57 @@ make migrate
 curl http://localhost:8001/health
 ```
 
-Загрузка документа:
+Загрузка документа (приказ):
 
 ```bash
 curl -X POST http://localhost:8001/documents/upload \
   -F "tenant_id=00000000-0000-0000-0000-000000000001" \
-  -F "doc_type=invoice" \
-  -F "counterparty_name=ACME" \
+  -F "doc_type=prikaz" \
+  -F "title=Приказ о премировании" \
   -F "file=@./samples/sample.pdf;type=application/pdf"
 ```
 
-Поиск:
+Загрузка в другой раздел (например, внутренний договор):
 
 ```bash
-curl "http://localhost:8001/search?tenant_id=00000000-0000-0000-0000-000000000001&q=invoice"
+curl -X POST http://localhost:8001/documents/upload \
+  -F "tenant_id=00000000-0000-0000-0000-000000000001" \
+  -F "doc_type=internal_contract" \
+  -F "counterparty_name=Отдел продаж" \
+  -F "file=@./samples/contract.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 ```
+
+Список документов одного раздела:
+
+```bash
+curl "http://localhost:8001/documents?tenant_id=00000000-0000-0000-0000-000000000001&doc_type=lna"
+```
+
+Список по нескольким разделам:
+
+```bash
+curl "http://localhost:8001/documents?tenant_id=00000000-0000-0000-0000-000000000001&doc_types=prikaz&doc_types=lna"
+```
+
+Поиск по всем разделам:
+
+```bash
+curl "http://localhost:8001/search?tenant_id=00000000-0000-0000-0000-000000000001&q=премирование"
+```
+
+Поиск только в договорах:
+
+```bash
+curl "http://localhost:8001/search?tenant_id=00000000-0000-0000-0000-000000000001&q=аренда&doc_types=internal_contract&doc_types=external_contract"
+```
+
+Просмотр и скачивание:
+
+- Портал сотрудника: http://localhost:8001/portal/
+- Просмотр оригинала: http://localhost:8001/viewer?tenant_id=00000000-0000-0000-0000-000000000001&document_id={uuid}
+- В `GET /documents` и `GET /documents/{id}` — готовые ссылки: `viewer_url`, `preview_url`, `download_url` (с хостом из `PUBLIC_API_BASE_URL`).
+- Файл inline: `GET /documents/{document_id}/file?tenant_id=...&disposition=inline`
+- Скачивание: `GET /documents/{document_id}/download?tenant_id=...`
 
 ## Разработка
 

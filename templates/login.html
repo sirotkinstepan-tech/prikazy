@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Приказы{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="login-page">
+  <main class="login-card">
+    <div class="login-brand">
+      <div class="login-logo">📄</div>
+      <h1>Приказы</h1>
+      <p class="muted">Войдите в систему для работы с документами</p>
+    </div>
+    {% if error %}
+    <div class="alert alert-error">Неверный email или пароль</div>
+    {% endif %}
+    <form method="post" action="/login" class="login-form">
+      <label>
+        <span>Email</span>
+        <input type="email" name="email" required autofocus placeholder="you@company.ru">
+      </label>
+      <label>
+        <span>Пароль</span>
+        <input type="password" name="password" required placeholder="••••••••">
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Войти</button>
+    </form>
+    <p class="login-hint muted">
+      Администратор: admin@example.com · Сотрудник: employee@example.com
+    </p>
+  </main>
+</body>
+</html>

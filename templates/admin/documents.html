@@ -1,0 +1,62 @@
+{% extends "base_admin.html" %}
+{% block title %}Документы{% endblock %}
+{% block page_title %}Документы{% endblock %}
+{% block topbar_actions %}
+<a href="/admin/upload" class="btn btn-primary btn-sm">+ Загрузить</a>
+{% endblock %}
+{% block content %}
+<form method="get" class="admin-filters">
+  <input type="text" name="counterparty_name" value="{{ filters.counterparty_name }}" placeholder="Контрагент">
+  <input type="text" name="doc_type" value="{{ filters.doc_type }}" placeholder="Тип">
+  <select name="status">
+    <option value="">Все статусы</option>
+    {% for s in ["uploaded","queued","processing","processed","validated","failed","archived"] %}
+    <option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ status_label(s) }}</option>
+    {% endfor %}
+  </select>
+  <input type="date" name="document_date_from" value="{{ filters.document_date_from or '' }}">
+  <input type="date" name="document_date_to" value="{{ filters.document_date_to or '' }}">
+  <button type="submit" class="btn btn-secondary btn-sm">Фильтр</button>
+</form>
+
+<p class="muted">{{ total }} документов</p>
+
+<table class="admin-table admin-table-full">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Название</th>
+      <th>Тип</th>
+      <th>Контрагент</th>
+      <th>Статус</th>
+      <th>Дата док.</th>
+      <th>Загружен</th>
+      <th>Размер</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for doc in documents %}
+    <tr>
+      <td><code class="mono-sm">{{ doc.id.hex[:8] }}…</code></td>
+      <td><a href="/admin/documents/{{ doc.id }}">{{ doc.title or doc.source_filename or "—" }}</a></td>
+      <td><code>{{ doc.doc_type or "—" }}</code></td>
+      <td>{{ doc.counterparty_name or "—" }}</td>
+      <td><span class="badge {{ status_class(doc.status) }}">{{ status_label(doc.status) }}</span></td>
+      <td>{{ format_date(doc.document_date) }}</td>
+      <td>{{ format_date(doc.created_at) }}</td>
+      <td>{{ format_size(doc.size_bytes) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="muted">Нет документов</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}" class="btn btn-ghost btn-sm">←</a>{% endif %}
+  <span class="muted">{{ page }} / {{ total_pages }}</span>
+  {% if page < total_pages %}<a href="?page={{ page + 1 }}" class="btn btn-ghost btn-sm">→</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

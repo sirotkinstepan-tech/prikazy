@@ -1,10 +1,13 @@
 from datetime import date, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, File, Form, Query, UploadFile, status
+from fastapi.responses import Response
 
 from app.api.dependencies import DbSessionDep, SettingsDep
+from app.api.document_urls import attach_document_links
+from app.core.document_sections import resolve_doc_type_filters
 from app.core.errors import ApplicationError
 from app.repositories.documents import DocumentRepository
 from app.repositories.ocr_results import OcrResultRepository
@@ -17,6 +20,7 @@ from app.schemas.documents import (
 )
 from app.services.document_service import DocumentService, UploadDocumentCommand
 from app.services.storage_service import ObjectStorageService
+from app.web.file_responses import build_document_file_response
 from app.workers.tasks import process_ocr_job
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -32,7 +36,6 @@ async def upload_document(
     document_date: Annotated[date | None, Form()] = None,
     counterparty_name: Annotated[str | None, Form()] = None,
     title: Annotated[str | None, Form()] = None,
-    idempotency_key: Annotated[str | None, Form()] = None,
 ) -> DocumentUploadResponse:
     content = await file.read()
     service = DocumentService(
@@ -64,8 +67,10 @@ async def upload_document(
 @router.get("", response_model=DocumentListResponse)
 def list_documents(
     session: DbSessionDep,
+    settings: SettingsDep,
     tenant_id: UUID,
     doc_type: str | None = None,
+    doc_types: list[str] | None = Query(default=None),
     status_filter: str | None = Query(default=None, alias="status"),
     document_date_from: date | None = None,
     document_date_to: date | None = None,
@@ -75,10 +80,11 @@ def list_documents(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> DocumentListResponse:
+    resolved_doc_types = resolve_doc_type_filters(doc_type=doc_type, doc_types=doc_types)
     repository = DocumentRepository(session)
     items, total = repository.list_for_tenant(
         tenant_id=tenant_id,
-        doc_type=doc_type,
+        doc_types=resolved_doc_types,
         status=status_filter,
         document_date_from=document_date_from,
         document_date_to=document_date_to,
@@ -92,19 +98,25 @@ def list_documents(
     for item in items:
         doc = DocumentRead.model_validate(item)
         doc.latest_job = repository.latest_job_for_document(item)
+        attach_document_links(doc, settings)
         response_items.append(doc)
     return DocumentListResponse(items=response_items, limit=limit, offset=offset, total=total)
 
 
 @router.get("/{document_id}", response_model=DocumentRead)
-def get_document(session: DbSessionDep, document_id: UUID, tenant_id: UUID) -> DocumentRead:
+def get_document(
+    session: DbSessionDep,
+    settings: SettingsDep,
+    document_id: UUID,
+    tenant_id: UUID,
+) -> DocumentRead:
     repository = DocumentRepository(session)
     document = repository.get_for_tenant(document_id, tenant_id)
     if document is None:
         raise ApplicationError("Document not found", status_code=404, code="document_not_found")
     response = DocumentRead.model_validate(document)
     response.latest_job = repository.latest_job_for_document(document)
-    return response
+    return attach_document_links(response, settings)
 
 
 @router.post("/{document_id}/reprocess", response_model=DocumentUploadResponse)
@@ -128,6 +140,39 @@ def reprocess_document(
         created_at=document.created_at,
         status=document.status,
         job_id=job.id,
+    )
+
+
+@router.get("/{document_id}/file")
+def get_document_file(
+    session: DbSessionDep,
+    settings: SettingsDep,
+    document_id: UUID,
+    tenant_id: UUID,
+    disposition: Literal["inline", "attachment"] = Query(default="inline"),
+) -> Response:
+    return build_document_file_response(
+        session,
+        settings,
+        document_id=document_id,
+        tenant_id=tenant_id,
+        disposition=disposition,
+    )
+
+
+@router.get("/{document_id}/download")
+def download_document(
+    session: DbSessionDep,
+    settings: SettingsDep,
+    document_id: UUID,
+    tenant_id: UUID,
+) -> Response:
+    return build_document_file_response(
+        session,
+        settings,
+        document_id=document_id,
+        tenant_id=tenant_id,
+        disposition="attachment",
     )
 
 

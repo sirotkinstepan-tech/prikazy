@@ -1,0 +1,182 @@
+{% extends "base_portal.html" %}
+{% block title %}{{ document.title or "Документ" }}{% endblock %}
+{% block content %}
+<section class="portal-page">
+  <a href="/portal/documents" class="back-link">← К базе документов</a>
+
+  {% if link_success %}
+  <div class="alert alert-success">Связь обновлена.</div>
+  {% endif %}
+  {% if link_error %}
+  <div class="alert alert-error">
+    {% if link_error == 'invalid_target' %}Укажите корректный ID связанного документа
+    {% elif link_error == 'link_already_exists' %}Такая связь уже есть
+    {% elif link_error == 'self_link_forbidden' %}Нельзя связать документ с самим собой
+    {% elif link_error == 'document_not_found' %}Связанный документ не найден или недоступен
+    {% elif link_error == 'section_access_denied' %}Нет доступа к разделу связанного документа
+    {% elif link_error == 'section_links_denied' %}Связи можно создавать только при полном доступе или праве загрузки в раздел
+    {% elif link_error == 'section_upload_denied' %}Нет права на загрузку в этот раздел — связи недоступны
+    {% else %}Не удалось изменить связь{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="doc-detail-header">
+    <h1>{{ document.title or document.source_filename or "Без названия" }}</h1>
+    <span class="badge {{ status_class(document.status) }} badge-lg">{{ status_label(document.status) }}</span>
+  </div>
+
+  <div class="doc-id-banner">
+    <span class="doc-id-banner-label">ID документа (для связей):</span>
+    <code id="document-uuid">{{ document.id }}</code>
+    <button type="button" class="btn btn-ghost btn-sm" id="copy-document-uuid">Скопировать</button>
+  </div>
+
+  <div class="doc-actions">
+    {% if can_download %}
+    <a
+      href="/portal/documents/{{ document.id }}/download"
+      class="btn btn-download"
+      download
+    >
+      <span class="btn-download-icon" aria-hidden="true">↓</span>
+      Скачать прикреплённый файл
+    </a>
+    {% endif %}
+    {% if document.source_filename %}
+    <span class="doc-actions-meta">{{ document.source_filename }} · {{ format_size(document.size_bytes) }}</span>
+    {% endif %}
+  </div>
+
+  {% if can_manage_links %}
+  <div class="detail-card detail-card-wide related-docs-card">
+    <h3>Связанные документы</h3>
+    <p class="page-subtitle related-docs-hint">
+      Прикрепите допсоглашения и приложения: откройте второй документ, нажмите «Скопировать» у его ID (вверху карточки) и вставьте сюда.
+    </p>
+
+    {% if related_documents %}
+    <ul class="related-doc-list related-doc-list-editable">
+      {% for rel in related_documents %}
+      <li class="related-doc-item">
+        <div>
+          <a href="/portal/documents/{{ rel.document_id }}">
+            <strong>{{ rel.title or rel.source_filename or "Без названия" }}</strong>
+          </a>
+          <span class="muted"> · {{ section_label(rel.doc_type) }}</span>
+          {% if rel.link_label %}<span class="badge badge-section">{{ rel.link_label }}</span>{% endif %}
+          {% if rel.direction == 'incoming' %}<span class="badge badge-section">связан с этим</span>{% endif %}
+        </div>
+        <form method="post" action="/portal/documents/{{ document.id }}/links/{{ rel.relation_id }}/delete" class="inline-form">
+          <button type="submit" class="btn btn-ghost btn-sm">Удалить</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">Связей пока нет.</p>
+    {% endif %}
+
+    <form method="post" action="/portal/documents/{{ document.id }}/links" class="related-link-form">
+      <label>
+        <span>ID связанного документа</span>
+        <input type="text" name="target_document_id" required placeholder="Скопируйте ID из другой карточки">
+      </label>
+      <label>
+        <span>Подпись (необязательно)</span>
+        <input type="text" name="link_label" placeholder="Например: доп. соглашение № 3">
+      </label>
+      <button type="submit" class="btn btn-primary btn-sm">Добавить связь</button>
+    </form>
+  </div>
+  {% elif related_documents %}
+  <div class="detail-card detail-card-wide related-docs-card">
+    <h3>Связанные документы</h3>
+    <ul class="related-doc-list">
+      {% for rel in related_documents %}
+      <li>
+        <a href="/portal/documents/{{ rel.document_id }}">
+          {{ rel.title or rel.source_filename or "Без названия" }}
+        </a>
+        <span class="muted"> · {{ section_label(rel.doc_type) }}</span>
+        {% if rel.link_label %}<span class="badge badge-section">{{ rel.link_label }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if preview_mode == "pdf" %}
+  <div class="doc-preview-card">
+    <h3>Просмотр оригинала документа</h3>
+    <iframe
+      class="doc-preview-frame"
+      src="/portal/documents/{{ document.id }}/file?disposition=inline"
+      title="Просмотр {{ document.source_filename or 'документа' }}"
+    ></iframe>
+  </div>
+  {% elif preview_mode == "image" %}
+  <div class="doc-preview-card">
+    <h3>Просмотр оригинала документа</h3>
+    <img
+      class="doc-preview-image"
+      src="/portal/documents/{{ document.id }}/file?disposition=inline"
+      alt="{{ document.source_filename or 'Документ' }}"
+    />
+  </div>
+  {% endif %}
+
+  <div class="detail-grid">
+    <div class="detail-card">
+      <h3>Информация</h3>
+      <dl class="detail-list">
+        <dt>Файл</dt><dd>{{ document.source_filename or "—" }}</dd>
+        <dt>Дата документа</dt><dd>{{ format_date(document.document_date) }}</dd>
+        <dt>Загружен</dt><dd>{{ format_date(document.created_at) }}</dd>
+        <dt>Размер</dt><dd>{{ format_size(document.size_bytes) }}</dd>
+        <dt>Раздел</dt><dd>{{ section_label(document.doc_type) }}</dd>
+      </dl>
+    </div>
+
+    {% if ocr_result %}
+    <div class="detail-card detail-card-wide">
+      <h3>Распознанный текст</h3>
+      <pre class="ocr-text">{{ ocr_result.full_text }}</pre>
+    </div>
+    {% elif document.status in ["queued", "processing"] %}
+    <div class="detail-card detail-card-wide">
+      <div class="processing-notice">
+        <div class="spinner"></div>
+        <p>Документ обрабатывается. Обновите страницу через минуту.</p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if extracted_fields %}
+    <div class="detail-card">
+      <h3>Извлечённые поля</h3>
+      <dl class="detail-list">
+        {% for field in extracted_fields %}
+        <dt>{{ field.field_name }}</dt><dd>{{ field.field_value }}</dd>
+        {% endfor %}
+      </dl>
+    </div>
+    {% endif %}
+  </div>
+</section>
+<script>
+(function () {
+  const btn = document.getElementById('copy-document-uuid');
+  const el = document.getElementById('document-uuid');
+  if (!btn || !el) return;
+  btn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(el.textContent.trim());
+      btn.textContent = 'Скопировано';
+      setTimeout(() => { btn.textContent = 'Скопировать'; }, 1500);
+    } catch (_) {
+      window.prompt('Скопируйте ID:', el.textContent.trim());
+    }
+  });
+})();
+</script>
+{% endblock %}

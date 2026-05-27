@@ -1,0 +1,56 @@
+{% extends "base_admin.html" %}
+{% block title %}Поиск{% endblock %}
+{% block page_title %}Полнотекстовый поиск{% endblock %}
+{% block content %}
+<form method="get" class="admin-filters">
+  <input type="text" name="q" value="{{ q }}" placeholder="Поисковый запрос" style="flex:2">
+  <input type="text" name="doc_type" value="{{ doc_type }}" placeholder="Тип">
+  <select name="status">
+    <option value="">Все статусы</option>
+    {% for s in ["processed","queued","processing","failed"] %}
+    <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ status_label(s) }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-primary btn-sm">Искать</button>
+</form>
+
+{% if q %}
+<p class="muted">Найдено: {{ total }}</p>
+<table class="admin-table admin-table-full">
+  <thead>
+    <tr>
+      <th>Rank</th>
+      <th>ID</th>
+      <th>Тип</th>
+      <th>Статус</th>
+      <th>Дата</th>
+      <th>Фрагмент</th>
+      <th>Связи</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in results %}
+    <tr>
+      <td>{{ "%.3f"|format(item.rank) }}</td>
+      <td><a href="/admin/documents/{{ item.document_id }}"><code class="mono-sm">{{ item.document_id.hex[:8] }}…</code></a></td>
+      <td>{{ section_label(item.doc_type) if item.doc_type else "—" }}</td>
+      <td><span class="badge {{ status_class(item.status) }}">{{ status_label(item.status) }}</span></td>
+      <td>{{ format_date(item.document_date) }}</td>
+      <td class="snippet-cell">{{ item.snippet or "—" }}</td>
+      <td class="related-inline-cell">
+        {% if item.related_documents %}
+        {% for rel in item.related_documents %}
+        <a href="/admin/documents/{{ rel.document_id }}" class="related-inline-link" title="{{ rel.title or rel.source_filename }}">
+          {{ rel.link_label or (rel.title or rel.source_filename or "Связь")|truncate(24) }}
+        </a>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+        {% else %}—{% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="muted">Ничего не найдено</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

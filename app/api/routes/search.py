@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.api.dependencies import DbSessionDep
+from app.core.document_sections import resolve_doc_type_filters
 from app.core.errors import ApplicationError
 from app.repositories.search import SearchRepository
 from app.schemas.search import SearchResponse
@@ -17,6 +18,7 @@ def search_documents(
     tenant_id: UUID,
     q: str = Query(min_length=1),
     doc_type: str | None = None,
+    doc_types: list[str] | None = Query(default=None),
     status: str | None = None,
     document_date_from: date | None = None,
     document_date_to: date | None = None,
@@ -33,11 +35,12 @@ def search_documents(
             code="empty_query",
         )
 
+    resolved_doc_types = resolve_doc_type_filters(doc_type=doc_type, doc_types=doc_types)
     repository = SearchRepository(session)
     items, total = repository.search(
         tenant_id=tenant_id,
         query=q,
-        doc_type=doc_type,
+        doc_types=resolved_doc_types,
         status=status,
         document_date_from=document_date_from,
         document_date_to=document_date_to,

@@ -1,0 +1,93 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-text: #1e293b;
+  --color-muted: #64748b;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-success: #16a34a;
+  --color-success-bg: #dcfce7;
+  --color-error: #dc2626;
+  --color-error-bg: #fee2e2;
+  --color-info: #0284c7;
+  --color-info-bg: #e0f2fe;
+  --color-warn: #d97706;
+  --color-warn-bg: #fef3c7;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body { font-family: var(--font); color: var(--color-text); background: var(--color-bg); line-height: 1.5; }
+a { color: var(--color-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.muted { color: var(--color-muted); font-size: .9em; }
+.link { font-size: .9em; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4em;
+  padding: .55em 1.1em; border: none; border-radius: var(--radius);
+  font-size: .95em; font-weight: 500; cursor: pointer; text-decoration: none;
+  transition: background .15s, transform .1s;
+}
+.btn:hover { text-decoration: none; }
+.btn-primary { background: var(--color-primary); color: #fff; }
+.btn-primary:hover { background: var(--color-primary-hover); }
+.btn-secondary { background: var(--color-border); color: var(--color-text); }
+.btn-secondary:hover { background: #cbd5e1; }
+.btn-ghost { background: transparent; color: var(--color-muted); border: 1px solid var(--color-border); }
+.btn-ghost:hover { background: var(--color-bg); }
+.btn-sm { padding: .35em .75em; font-size: .85em; }
+.btn-lg { padding: .75em 1.5em; font-size: 1.05em; }
+.btn-block { width: 100%; }
+
+.badge {
+  display: inline-block; padding: .15em .55em; border-radius: 999px;
+  font-size: .78em; font-weight: 600; text-transform: uppercase; letter-spacing: .03em;
+}
+.badge-lg { font-size: .85em; padding: .25em .75em; }
+.status-success { background: var(--color-success-bg); color: var(--color-success); }
+.status-error { background: var(--color-error-bg); color: var(--color-error); }
+.status-info { background: var(--color-info-bg); color: var(--color-info); }
+.status-neutral { background: #f1f5f9; color: var(--color-muted); }
+.badge-admin { background: #ede9fe; color: #7c3aed; }
+.badge-employee { background: #e0f2fe; color: #0284c7; }
+
+.alert { padding: .85em 1em; border-radius: var(--radius); margin-bottom: 1em; font-size: .95em; }
+.alert-error { background: var(--color-error-bg); color: var(--color-error); }
+.alert-success { background: var(--color-success-bg); color: var(--color-success); }
+
+.inline-form { display: inline; }
+
+.pagination { display: flex; align-items: center; gap: 1em; margin-top: 1.5em; justify-content: center; }
+
+.detail-list { display: grid; grid-template-columns: auto 1fr; gap: .4em 1.2em; }
+.detail-list dt { color: var(--color-muted); font-size: .88em; }
+.detail-list dd { font-size: .95em; }
+
+.ocr-text {
+  background: #f8fafc; border: 1px solid var(--color-border); border-radius: var(--radius);
+  padding: 1em; font-size: .85em; white-space: pre-wrap; max-height: 400px; overflow-y: auto;
+  font-family: ui-monospace, monospace; line-height: 1.6;
+}
+
+.empty-state { text-align: center; padding: 3em 1em; color: var(--color-muted); }
+.empty-state p { margin-bottom: 1em; }
+
+.back-link { display: inline-block; margin-bottom: 1em; font-size: .9em; color: var(--color-muted); }
+
+/* Login */
+.login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 50%, #f0fdf4 100%); }
+.login-card { background: var(--color-surface); border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.1); padding: 2.5em; width: 100%; max-width: 400px; }
+.login-brand { text-align: center; margin-bottom: 1.5em; }
+.login-logo { font-size: 2.5em; margin-bottom: .3em; }
+.login-brand h1 { font-size: 1.6em; margin-bottom: .2em; }
+.login-form { display: flex; flex-direction: column; gap: 1em; }
+.login-form label { display: flex; flex-direction: column; gap: .3em; }
+.login-form label span { font-size: .88em; font-weight: 500; color: var(--color-muted); }
+.login-form input { padding: .65em .85em; border: 1px solid var(--color-border); border-radius: var(--radius); font-size: 1em; }
+.login-form input:focus { outline: 2px solid var(--color-primary); border-color: transparent; }
+.login-hint { text-align: center; margin-top: 1.2em; font-size: .8em; }

@@ -32,6 +32,11 @@ class JobService:
         if document is None:
             raise ApplicationError("Document not found", status_code=404, code="document_not_found")
 
+        self.jobs.cancel_queued_for_document(
+            document_id=document.id,
+            document_created_at=document.created_at,
+        )
+
         now = datetime.now(UTC)
         document.status = DocumentStatus.QUEUED.value
         document.updated_at = now

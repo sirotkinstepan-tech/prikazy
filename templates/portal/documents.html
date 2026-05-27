@@ -1,0 +1,62 @@
+{% extends "base_portal.html" %}
+{% block title %}База документов{% endblock %}
+{% set section_tab_base = "/portal/documents" %}
+{% block content %}
+<section class="portal-page">
+  <div class="section-header">
+    <h1>База документов</h1>
+    <span class="muted">{{ total }} документов{% if current_section != 'all' %} · {{ section_label(current_section) }}{% endif %}</span>
+  </div>
+
+  <form method="get" class="filter-bar">
+    {% if current_section != 'all' %}
+    <input type="hidden" name="section" value="{{ current_section }}">
+    {% endif %}
+    <input type="text" name="q" value="{{ q }}" placeholder="Поиск по названию или тексту документа…">
+    <select name="status">
+      <option value="">Все статусы</option>
+      <option value="processed" {% if status_filter == "processed" %}selected{% endif %}>Готов</option>
+      <option value="queued" {% if status_filter == "queued" %}selected{% endif %}>В очереди</option>
+      <option value="processing" {% if status_filter == "processing" %}selected{% endif %}>Обрабатывается</option>
+      <option value="failed" {% if status_filter == "failed" %}selected{% endif %}>Ошибка</option>
+    </select>
+    <button type="submit" class="btn btn-secondary">Применить</button>
+  </form>
+
+  {% if documents %}
+  <div class="doc-cards">
+    {% for doc in documents %}
+    <a href="/portal/documents/{{ doc.id }}" class="doc-card">
+      <div class="doc-card-icon">📄</div>
+      <div class="doc-card-body">
+        <div class="doc-card-title">{{ doc.title or doc.source_filename or "Без названия" }}</div>
+        <div class="doc-card-meta">
+          <span class="badge badge-section">{{ section_label(doc.doc_type) }}</span>
+          <span class="badge {{ status_class(doc.status) }}">{{ status_label(doc.status) }}</span>
+          {% if doc.document_date %}<span>{{ format_date(doc.document_date) }}</span>{% endif %}
+          <span>{{ format_size(doc.size_bytes) }}</span>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% if total_pages > 1 %}
+  <div class="pagination">
+    {% if page > 1 %}
+    <a href="?page={{ page - 1 }}&q={{ q }}&status={{ status_filter }}{% if current_section != 'all' %}&section={{ current_section }}{% endif %}" class="btn btn-ghost btn-sm">← Назад</a>
+    {% endif %}
+    <span class="muted">Страница {{ page }} из {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="?page={{ page + 1 }}&q={{ q }}&status={{ status_filter }}{% if current_section != 'all' %}&section={{ current_section }}{% endif %}" class="btn btn-ghost btn-sm">Вперёд →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="empty-state">
+    <p>Документы не найдены</p>
+    <a href="/portal/upload{% if current_section != 'all' %}?section={{ current_section }}{% endif %}" class="btn btn-primary">Загрузить документ</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -37,11 +37,18 @@ Expected response:
 {"status":"ok","service":"prikazy","environment":"local"}
 ```
 
-The interactive API docs are available at:
+Local base URL (override in Makefile: `make health API_BASE=http://127.0.0.1:8001`):
 
 ```text
-http://localhost:8001/docs
+http://localhost:8001
 ```
+
+| Endpoint | URL |
+|----------|-----|
+| Health | http://localhost:8001/health |
+| API docs | http://localhost:8001/docs |
+| Sections | http://localhost:8001/sections |
+| Viewer | http://localhost:8001/ |
 
 ## 3. Where To Put Test Files
 
@@ -51,27 +58,29 @@ Put local test documents in:
 samples/
 ```
 
-Supported upload types are PDF, PNG, JPEG, and TIFF.
+Supported upload types are PDF, PNG, JPEG, TIFF, DOCX, and XLSX.
 
 Example:
 
 ```text
-samples/invoice.pdf
+samples/sample.pdf
 ```
 
 ## 4. Upload A Test Document
 
-Use the helper command:
+Use the helper command (default section: `prikaz`):
 
 ```bash
-make upload SAMPLE=samples/invoice.pdf
+make upload SAMPLE=samples/sample.pdf
 ```
 
 You can override metadata:
 
 ```bash
-make upload SAMPLE=samples/invoice.pdf DOC_TYPE=invoice COUNTERPARTY=ACME
+make upload SAMPLE=samples/sample.pdf DOC_TYPE=internal_contract COUNTERPARTY=ACME
 ```
+
+Allowed `DOC_TYPE` values: `prikaz`, `internal_contract`, `external_contract`, `lna`.
 
 The response should include `document_id`, `job_id`, and status `queued`.
 
@@ -86,7 +95,7 @@ make logs
 Search OCR text:
 
 ```bash
-make search DOC_TYPE=invoice
+make search SEARCH_Q=премирование
 ```
 
 You can also list documents directly:
@@ -104,6 +113,21 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
+```
+
+Or inside Docker:
+
+```bash
+docker compose exec app pytest
+```
+
+On macOS with the project in iCloud Drive, Docker may see stale files. Sync
+explicitly before tests:
+
+```bash
+chmod +x scripts/docker-sync.sh
+./scripts/docker-sync.sh
+docker compose restart app worker
 ```
 
 If you only want to smoke-test the running app, Docker Compose plus the upload

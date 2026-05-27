@@ -12,15 +12,23 @@ class Settings(BaseSettings):
 
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    public_api_base_url: str = Field(
+        default="http://localhost:8001",
+        validation_alias="PUBLIC_API_BASE_URL",
+    )
+    default_tenant_id: str = Field(
+        default="00000000-0000-0000-0000-000000000001",
+        validation_alias="DEFAULT_TENANT_ID",
+    )
 
     database_url: str = Field(
         default="postgresql+psycopg://prikazy:prikazy@localhost:5433/prikazy",
         validation_alias="DATABASE_URL",
     )
-    celery_broker_url: str = "redis://localhost:6379/0"
-    celery_result_backend: str = "redis://localhost:6379/1"
+    celery_broker_url: str = "redis://localhost:6380/0"
+    celery_result_backend: str = "redis://localhost:6380/1"
 
-    s3_endpoint_url: str = "http://localhost:9000"
+    s3_endpoint_url: str = "http://localhost:9002"
     s3_access_key_id: str = "minioadmin"
     s3_secret_access_key: str = "minioadmin"
     s3_bucket: str = "documents"
@@ -34,6 +42,11 @@ class Settings(BaseSettings):
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
     default_ocr_provider: str = "stub"
+
+    session_secret: str = Field(
+        default="change-me-in-production-use-a-long-random-string",
+        validation_alias="SESSION_SECRET",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

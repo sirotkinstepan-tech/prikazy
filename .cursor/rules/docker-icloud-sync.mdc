@@ -1,0 +1,41 @@
+---
+description: Sync code to Docker after edits (iCloud Drive volume lag)
+alwaysApply: true
+---
+
+# iCloud Drive and Docker (prikazy)
+
+Also covered by the global user rule `icloud-docker-sync` in `~/.cursor/rules/`.
+
+This repo lives in **iCloud Drive**. The bind mount `.:/app` in Docker Compose often shows **stale files** (old `main.py`, missing tests, deleted routes still present). Edits on disk are not always visible inside `prikazy-app-1` / `prikazy-worker-1` until synced.
+
+## Required after every code change
+
+After modifying any project file under `app/`, `tests/`, `alembic/`, `pyproject.toml`, or Docker-related config:
+
+1. Run from the project root:
+
+```bash
+./scripts/docker-sync.sh
+```
+
+2. If API or worker behavior must pick up changes immediately, restart:
+
+```bash
+docker compose restart app worker
+```
+
+Use restart when routes, Celery tasks, or startup imports changed. For small fixes, sync alone is often enough if `--reload` is active.
+
+## Do not skip
+
+- Do **not** assume `docker compose exec app pytest` or manual curls reflect your latest edits without sync.
+- Do **not** report test/API results from Docker until sync has run in the same session after your edits.
+
+## When containers are down
+
+If containers are not running, skip sync and note that verification requires `make up` first.
+
+## Long-term alternative
+
+Moving the repo out of iCloud (e.g. `~/Projects/prikazy`) removes this issue; until then, sync is mandatory.

@@ -15,6 +15,7 @@ class SearchRepository:
         tenant_id: UUID,
         query: str,
         doc_type: str | None = None,
+        doc_types: list[str] | None = None,
         status: str | None = None,
         document_date_from: date | None = None,
         document_date_to: date | None = None,
@@ -24,14 +25,28 @@ class SearchRepository:
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[dict], int]:
-        filters = ["d.tenant_id = :tenant_id", "lor.search_vector @@ q.tsq"]
-        params = {
+        query = query.strip()
+        like_pattern = f"%{query}%"
+        filters = [
+            "d.tenant_id = :tenant_id",
+            """(
+                d.title ILIKE :like_pattern
+                OR d.source_filename ILIKE :like_pattern
+                OR lor.full_text ILIKE :like_pattern
+                OR (lor.search_vector IS NOT NULL AND lor.search_vector @@ q.tsq)
+            )""",
+        ]
+        params: dict = {
             "tenant_id": tenant_id,
             "query": query,
+            "like_pattern": like_pattern,
             "limit": limit,
             "offset": offset,
         }
-        if doc_type:
+        if doc_types:
+            filters.append("d.doc_type = ANY(:doc_types)")
+            params["doc_types"] = doc_types
+        elif doc_type:
             filters.append("d.doc_type = :doc_type")
             params["doc_type"] = doc_type
         if status:
@@ -70,34 +85,46 @@ class SearchRepository:
                 ORDER BY document_id, document_created_at, processed_at DESC
             )
         """
+        select_fields = """
+            SELECT
+                d.id AS document_id,
+                d.title,
+                d.source_filename,
+                d.status,
+                d.doc_type,
+                d.document_date,
+                d.counterparty_name,
+                CASE
+                    WHEN d.title ILIKE :like_pattern
+                         OR d.source_filename ILIKE :like_pattern THEN 1.0
+                    ELSE COALESCE(ts_rank(lor.search_vector, q.tsq), 0)
+                END AS rank,
+                CASE
+                    WHEN d.title ILIKE :like_pattern THEN d.title
+                    WHEN d.source_filename ILIKE :like_pattern THEN d.source_filename
+                    ELSE ts_headline('simple', lor.full_text, q.tsq)
+                END AS snippet
+        """
+        from_clause = """
+            FROM documents d
+            LEFT JOIN latest_ocr lor
+              ON lor.document_id = d.id
+             AND lor.document_created_at = d.created_at
+            CROSS JOIN q
+        """
         count_sql = text(
             f"""
             {base_cte}
             SELECT count(*) AS total
-            FROM documents d
-            JOIN latest_ocr lor
-              ON lor.document_id = d.id
-             AND lor.document_created_at = d.created_at
-            CROSS JOIN q
+            {from_clause}
             WHERE {where_clause}
             """
         )
         items_sql = text(
             f"""
             {base_cte}
-            SELECT
-                d.id AS document_id,
-                d.status,
-                d.doc_type,
-                d.document_date,
-                d.counterparty_name,
-                ts_rank(lor.search_vector, q.tsq) AS rank,
-                ts_headline('simple', lor.full_text, q.tsq) AS snippet
-            FROM documents d
-            JOIN latest_ocr lor
-              ON lor.document_id = d.id
-             AND lor.document_created_at = d.created_at
-            CROSS JOIN q
+            {select_fields}
+            {from_clause}
             WHERE {where_clause}
             ORDER BY rank DESC, d.created_at DESC
             LIMIT :limit OFFSET :offset
