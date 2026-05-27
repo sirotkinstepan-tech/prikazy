@@ -27,15 +27,20 @@ from app.services.document_service import DocumentService, UploadDocumentCommand
 from app.web.portal_context import merge_doc_types_filter, portal_template_context
 from app.web.template_context import web_template_context
 from app.web.section_access import (
+    ai_allowed_doc_types,
     can_manage_document_links,
+    require_ai_access,
     require_section_download,
     require_section_manage_links,
     require_section_upload,
     require_section_view,
+    user_can_use_ai,
 )
+from app.services.ai_query_service import AiQueryService
+from app.services.llm_client import LlmClient
 from app.services.storage_service import ObjectStorageService
 from app.web.file_responses import build_document_file_response
-from app.web.helpers import format_date, format_size, status_class, status_label
+from app.web.helpers import format_date, format_size, status_class, status_label, user_error_label
 from app.workers.tasks import process_ocr_job
 
 router = APIRouter(prefix="/portal", tags=["portal"])
@@ -447,4 +452,97 @@ def search_page(
             "current_section": section or "all",
             **_portal_ctx(request, user),
         },
+    )
+
+
+def _render_ai_page(
+    request: Request,
+    user: WebUserDep,
+    *,
+    question: str = "",
+    answer: str | None = None,
+    sources: list | None = None,
+    error_code: str | None = None,
+    llm_ready: bool = True,
+):
+    return templates.TemplateResponse(
+        request,
+        "portal/ai.html",
+        {
+            "user": user,
+            "question": question,
+            "answer": answer,
+            "sources": sources or [],
+            "error_message": user_error_label(error_code) if error_code else None,
+            "llm_ready": llm_ready,
+            "current_section": "all",
+            **_portal_ctx(request, user),
+        },
+    )
+
+
+@router.get("/ai")
+def ai_page(request: Request, user: WebUserDep, settings: SettingsDep):
+    if not user_can_use_ai(user):
+        return RedirectResponse(url="/portal/?error=ai_access_denied", status_code=status.HTTP_303_SEE_OTHER)
+    llm_ready = LlmClient(settings).is_configured
+    return _render_ai_page(request, user, llm_ready=llm_ready)
+
+
+@router.post("/ai")
+def ai_ask(
+    request: Request,
+    user: WebUserDep,
+    session: DbSessionDep,
+    settings: SettingsDep,
+    question: Annotated[str, Form()],
+    csrf_token: Annotated[str, Form()],
+):
+    verify_csrf_form(request, csrf_token)
+    if not user_can_use_ai(user):
+        return RedirectResponse(url="/portal/?error=ai_access_denied", status_code=status.HTTP_303_SEE_OTHER)
+
+    llm_ready = LlmClient(settings).is_configured
+    cleaned_question = question.strip()
+    if not cleaned_question:
+        return _render_ai_page(
+            request,
+            user,
+            question=question,
+            error_code="empty_question",
+            llm_ready=llm_ready,
+        )
+    if not llm_ready:
+        return _render_ai_page(
+            request,
+            user,
+            question=cleaned_question,
+            error_code="llm_not_configured",
+            llm_ready=False,
+        )
+
+    require_ai_access(user)
+    service = AiQueryService(session, settings)
+    try:
+        response = service.ask(
+            tenant_id=user.tenant_id,
+            question=cleaned_question,
+            allowed_doc_types=ai_allowed_doc_types(user),
+        )
+    except ApplicationError as exc:
+        return _render_ai_page(
+            request,
+            user,
+            question=cleaned_question,
+            error_code=exc.code,
+            llm_ready=llm_ready,
+        )
+
+    return _render_ai_page(
+        request,
+        user,
+        question=cleaned_question,
+        answer=response.answer,
+        sources=response.sources,
+        llm_ready=llm_ready,
     )

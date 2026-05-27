@@ -7,6 +7,9 @@
   <div class="portal-hero-actions">
     <a href="/portal/upload" class="btn btn-primary btn-lg">📤 Загрузить документ</a>
     <a href="/portal/search" class="btn btn-secondary btn-lg">🔍 Найти документ</a>
+    {% if can_use_ai %}
+    <a href="/portal/ai" class="btn btn-secondary btn-lg">🤖 Спросить AI</a>
+    {% endif %}
   </div>
 </section>
 

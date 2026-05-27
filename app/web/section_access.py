@@ -59,6 +59,11 @@ def user_can_upload_any_section(user: AuthenticatedUser) -> bool:
     return any(level_can_upload(level) for level in user.section_access.values())
 
 
+def user_can_use_ai(user: AuthenticatedUser) -> bool:
+    allowed = ai_allowed_doc_types(user)
+    return allowed is None or bool(allowed)
+
+
 def can_manage_document_links(user: AuthenticatedUser, doc_type: str | None) -> bool:
     if user.role == UserRole.ADMIN:
         return True

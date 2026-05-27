@@ -8,10 +8,18 @@ CSRF_FILE ?= .api-csrf-token
 API_EMAIL ?= admin@example.com
 API_PASSWORD ?= admin123
 
-.PHONY: env up down migrate logs health upload search test lint format-check local-up local-down local-bootstrap api-login api-curl-upload api-curl-search seed
+.PHONY: env up down migrate logs health upload search test lint format-check local-up local-down local-bootstrap api-login api-curl-upload api-curl-search seed setup setup-yandex
 
 env:
 	@test -f .env || cp .env.example .env
+
+setup:
+	chmod +x scripts/setup-project.sh scripts/setup-yandex-llm.sh
+	./scripts/setup-project.sh
+
+setup-yandex:
+	chmod +x scripts/setup-yandex-llm.sh
+	./scripts/setup-yandex-llm.sh
 
 up: env
 	DOCKER_BUILDKIT=0 docker compose up --build

@@ -1,7 +1,7 @@
 from app.auth.service import AuthenticatedUser
 from app.core.document_sections import document_sections_for_ui
 from app.core.section_permissions import document_sections_with_access_for_ui
-from app.web.section_access import user_allowed_doc_types, user_can_upload_any_section
+from app.web.section_access import user_allowed_doc_types, user_can_upload_any_section, user_can_use_ai
 
 
 def portal_template_context(user: AuthenticatedUser) -> dict:
@@ -15,6 +15,7 @@ def portal_template_context(user: AuthenticatedUser) -> dict:
     return {
         "portal_sections": sections,
         "can_upload_any": user_can_upload_any_section(user),
+        "can_use_ai": user_can_use_ai(user),
         "show_all_section_tab": show_all,
     }
 

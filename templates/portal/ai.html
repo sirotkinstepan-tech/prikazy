@@ -1,0 +1,81 @@
+{% extends "base_portal.html" %}
+{% block title %}AI-поиск{% endblock %}
+{% block content %}
+<section class="portal-page ai-page">
+  <div class="ai-page-header">
+    <h1>🤖 AI-поиск по базе</h1>
+    <p class="page-subtitle">
+      Задайте вопрос на русском — ответ будет только из вашей базы документов, без интернета.
+    </p>
+  </div>
+
+  {% if not llm_ready %}
+  <div class="alert alert-warning">
+    Yandex Cloud AI не настроен. Администратор должен указать <code>YANDEX_API_KEY</code> и
+    <code>YANDEX_FOLDER_ID</code> в файле <code>.env</code> (скрипт: <code>make setup-yandex</code>).
+  </div>
+  {% endif %}
+
+  {% if error_message %}
+  <div class="alert alert-error">{{ error_message }}</div>
+  {% endif %}
+
+  <form method="post" action="/portal/ai" class="ai-form" id="ai-form">
+    {% include "csrf_field.html" %}
+    <label for="question" class="ai-label">Ваш вопрос</label>
+    <textarea
+      id="question"
+      name="question"
+      rows="3"
+      placeholder="Например: какие приказы у ответственного Иванов? Сгруппируй документы по типам."
+      required
+      {% if not llm_ready %}disabled{% endif %}
+    >{{ question }}</textarea>
+    <div class="ai-examples">
+      <span class="muted">Примеры:</span>
+      <button type="button" class="ai-example-chip" data-question="Сгруппируй документы по типу">По типам</button>
+      <button type="button" class="ai-example-chip" data-question="Сколько документов в каждом статусе?">По статусам</button>
+      <button type="button" class="ai-example-chip" data-question="Найди приказы про отпуск">Про отпуск</button>
+    </div>
+    <button type="submit" class="btn btn-primary btn-lg" id="ai-submit" {% if not llm_ready %}disabled{% endif %}>
+      Спросить AI
+    </button>
+  </form>
+
+  {% if answer %}
+  <section class="ai-answer">
+    <h2>Ответ</h2>
+    <div class="ai-answer-body">{{ answer }}</div>
+    {% if sources %}
+    <details class="ai-sources">
+      <summary>Источники данных ({{ sources|length }})</summary>
+      <ul>
+        {% for source in sources %}
+        <li>
+          <code>{{ source.tool }}</code>
+          — найдено записей: {{ source.result_count }}
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </section>
+  {% endif %}
+</section>
+<script>
+  document.querySelectorAll(".ai-example-chip").forEach((button) => {
+    button.addEventListener("click", () => {
+      const field = document.getElementById("question");
+      field.value = button.dataset.question || "";
+      field.focus();
+    });
+  });
+  document.getElementById("ai-form")?.addEventListener("submit", () => {
+    const btn = document.getElementById("ai-submit");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Думаю…";
+    }
+  });
+</script>
+{% endblock %}

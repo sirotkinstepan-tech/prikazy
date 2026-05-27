@@ -21,6 +21,9 @@
         {% endif %}
         <a href="/portal/documents" {% if request.url.path == "/portal/documents" %}class="active"{% endif %}>База</a>
         <a href="/portal/search" {% if "/search" in request.url.path %}class="active"{% endif %}>Поиск</a>
+        {% if can_use_ai %}
+        <a href="/portal/ai" {% if "/ai" in request.url.path %}class="active"{% endif %}>AI</a>
+        {% endif %}
       </nav>
       <div class="portal-user">
         <span>{{ user.full_name }}</span>

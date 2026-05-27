@@ -47,3 +47,27 @@ def test_require_ai_access_denied_without_full():
     with pytest.raises(ApplicationError) as exc_info:
         require_ai_access(user)
     assert exc_info.value.code == "ai_access_denied"
+
+
+def test_user_can_use_ai():
+    from app.web.section_access import user_can_use_ai
+
+    admin = AuthenticatedUser(
+        id=uuid4(),
+        tenant_id=uuid4(),
+        email="admin@example.com",
+        full_name="Admin",
+        role=UserRole.ADMIN,
+        section_access={},
+    )
+    assert user_can_use_ai(admin) is True
+
+    employee = AuthenticatedUser(
+        id=uuid4(),
+        tenant_id=uuid4(),
+        email="user@example.com",
+        full_name="User",
+        role=UserRole.EMPLOYEE,
+        section_access={DocumentType.PRIKAZ.value: SectionAccessLevel.VIEW_ONLY},
+    )
+    assert user_can_use_ai(employee) is False

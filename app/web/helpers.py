@@ -56,6 +56,11 @@ SECTION_ACCESS_ERROR_LABELS = {
     "section_upload_denied": "Нет права на загрузку в этот раздел",
     "section_download_denied": "Нет права на скачивание из этого раздела",
     "section_links_denied": "Связи документов доступны при полном доступе или праве загрузки в раздел",
+    "ai_access_denied": "AI доступен только при праве «Полный доступ» к разделу",
+    "llm_not_configured": "AI не настроен: укажите YANDEX_API_KEY и YANDEX_FOLDER_ID в .env",
+    "llm_timeout": "AI не ответил вовремя, попробуйте короче сформулировать вопрос",
+    "llm_api_error": "Ошибка Yandex Cloud AI, проверьте ключ и каталог",
+    "empty_question": "Введите вопрос",
 }
 
 USER_ERROR_LABELS = {
