@@ -1,0 +1,57 @@
+{% extends "base_portal.html" %}
+{% block title %}Поиск{% endblock %}
+{% set section_tab_base = "/portal/search" %}
+{% block content %}
+<section class="portal-page">
+  <h1>Поиск по документам</h1>
+  <p class="page-subtitle">
+    {% if current_section == 'all' %}
+    Поиск по всем разделам: приказы, договоры, ЛНА
+    {% else %}
+    Поиск в разделе «{{ section_label(current_section) }}»
+    {% endif %}
+  </p>
+
+  <form method="get" class="search-form">
+    {% if current_section != 'all' %}
+    <input type="hidden" name="section" value="{{ current_section }}">
+    {% endif %}
+    <input type="text" name="q" value="{{ q }}" placeholder="Например: № 31, отпуск, аренда, командировка…" autofocus>
+    <button type="submit" class="btn btn-primary btn-lg">Найти</button>
+  </form>
+
+  {% if q %}
+  <p class="search-results-count">
+    {% if total > 0 %}Найдено: {{ total }} документ(ов){% else %}Ничего не найдено по запросу «{{ q }}»{% endif %}
+  </p>
+
+  {% if results %}
+  <div class="search-results">
+    {% for item in results %}
+    <a href="/portal/documents/{{ item.document_id }}" class="search-result">
+      <div class="search-result-header">
+        <strong>{{ item.title or item.source_filename or "Без названия" }}</strong>
+        <span class="badge badge-section">{{ section_label(item.doc_type) }}</span>
+        <span class="badge {{ status_class(item.status) }}">{{ status_label(item.status) }}</span>
+        {% if item.document_date %}<span class="muted">{{ format_date(item.document_date) }}</span>{% endif %}
+      </div>
+      {% if item.snippet and item.snippet != (item.title or item.source_filename) %}
+      <p class="search-snippet">{{ item.snippet }}</p>
+      {% endif %}
+      {% if item.related_documents %}
+      <div class="search-related">
+        <span class="search-related-label">Связи:</span>
+        {% for rel in item.related_documents %}
+        <a href="/portal/documents/{{ rel.document_id }}" class="search-related-link" onclick="event.stopPropagation();">
+          {{ rel.link_label or (rel.title or rel.source_filename or "Документ")|truncate(30) }}
+        </a>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

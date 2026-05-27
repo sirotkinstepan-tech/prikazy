@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Портал{% endblock %} — Документы</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/portal.css">
+</head>
+<body class="portal-body">
+  <header class="portal-header">
+    <div class="portal-header-inner">
+      <a href="/portal/" class="portal-brand">
+        <span class="portal-brand-icon">📄</span>
+        <span class="portal-brand-text">Документы</span>
+      </a>
+      <nav class="portal-nav">
+        <a href="/portal/" {% if request.url.path == "/portal/" %}class="active"{% endif %}>Главная</a>
+        {% if can_upload_any != false %}
+        <a href="/portal/upload" {% if "/upload" in request.url.path %}class="active"{% endif %}>Загрузить</a>
+        {% endif %}
+        <a href="/portal/documents" {% if request.url.path == "/portal/documents" %}class="active"{% endif %}>База</a>
+        <a href="/portal/search" {% if "/search" in request.url.path %}class="active"{% endif %}>Поиск</a>
+      </nav>
+      <div class="portal-user">
+        <span>{{ user.full_name }}</span>
+        <form method="post" action="/logout" class="inline-form">
+          {% include "csrf_field.html" %}
+          <button type="submit" class="btn btn-ghost btn-sm">Выйти</button>
+        </form>
+      </div>
+    </div>
+    <div class="portal-section-bar">
+      <div class="portal-section-bar-inner">
+        <span class="section-bar-label">Раздел:</span>
+        <nav class="section-tabs">
+          {% if show_all_section_tab != false %}
+          <a href="{{ section_tab_base or '/portal/documents' }}" class="section-tab {% if current_section == 'all' %}active{% endif %}">Все</a>
+          {% endif %}
+          {% if portal_sections is defined %}
+            {% for section in portal_sections %}
+            <a href="{{ section_tab_base or '/portal/documents' }}?section={{ section.slug }}" class="section-tab {% if current_section == section.slug %}active{% endif %}">{{ section.label }}</a>
+            {% endfor %}
+          {% else %}
+            {% for section in document_sections() %}
+            <a href="{{ section_tab_base or '/portal/documents' }}?section={{ section.slug }}" class="section-tab {% if current_section == section.slug %}active{% endif %}">{{ section.label }}</a>
+            {% endfor %}
+          {% endif %}
+        </nav>
+      </div>
+    </div>
+  </header>
+  <main class="portal-main">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -49,7 +49,11 @@ def extract_xlsx_text(content: bytes) -> str:
     for worksheet in workbook.worksheets:
         lines.append(f"--- Sheet: {worksheet.title} ---")
         for row in worksheet.iter_rows(values_only=True):
-            cells = [str(value).strip() for value in row if value is not None and str(value).strip()]
+            cells = [
+                str(value).strip()
+                for value in row
+                if value is not None and str(value).strip()
+            ]
             if cells:
                 lines.append("\t".join(cells))
 

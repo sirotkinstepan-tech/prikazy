@@ -1,0 +1,75 @@
+{% extends "base_admin.html" %}
+{% block title %}Дашборд{% endblock %}
+{% block page_title %}Дашборд{% endblock %}
+{% block content %}
+<div class="admin-stats">
+  <div class="admin-stat">
+    <div class="admin-stat-value">{{ total_documents }}</div>
+    <div class="admin-stat-label">Всего документов</div>
+  </div>
+  <div class="admin-stat admin-stat-warn">
+    <div class="admin-stat-value">{{ pending_total }}</div>
+    <div class="admin-stat-label">В обработке</div>
+  </div>
+  <div class="admin-stat admin-stat-error">
+    <div class="admin-stat-value">{{ failed_total }}</div>
+    <div class="admin-stat-label">С ошибками</div>
+  </div>
+  <div class="admin-stat">
+    <div class="admin-stat-value">{{ users_count }}</div>
+    <div class="admin-stat-label">Пользователей</div>
+  </div>
+</div>
+
+<div class="admin-grid">
+  <section class="admin-panel">
+    <div class="panel-header">
+      <h2>Последние документы</h2>
+      <a href="/admin/documents" class="link">Все →</a>
+    </div>
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Название</th>
+          <th>Тип</th>
+          <th>Статус</th>
+          <th>Дата</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in recent_documents %}
+        <tr>
+          <td><a href="/admin/documents/{{ doc.id }}">{{ doc.title or doc.source_filename or "—" }}</a></td>
+          <td><code>{{ doc.doc_type or "—" }}</code></td>
+          <td><span class="badge {{ status_class(doc.status) }}">{{ status_label(doc.status) }}</span></td>
+          <td class="muted">{{ format_date(doc.created_at) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">Нет документов</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  {% if failed_documents %}
+  <section class="admin-panel admin-panel-error">
+    <div class="panel-header">
+      <h2>Ошибки обработки</h2>
+    </div>
+    <table class="admin-table">
+      <thead>
+        <tr><th>Документ</th><th>Ошибка</th></tr>
+      </thead>
+      <tbody>
+        {% for doc in failed_documents %}
+        <tr>
+          <td><a href="/admin/documents/{{ doc.id }}">{{ doc.title or doc.source_filename or "—" }}</a></td>
+          <td class="muted">{{ doc.latest_job.error_message if doc.latest_job else "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

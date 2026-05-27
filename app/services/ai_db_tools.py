@@ -180,12 +180,39 @@ def _serialize_document(document) -> dict[str, Any]:
 
 
 class AiDbToolExecutor:
-    def __init__(self, session: Session, tenant_id: UUID):
+    def __init__(
+        self,
+        session: Session,
+        tenant_id: UUID,
+        allowed_doc_types: list[str] | None = None,
+    ):
         self.session = session
         self.tenant_id = tenant_id
+        self.allowed_doc_types = allowed_doc_types
         self.search_repository = SearchRepository(session)
         self.document_repository = DocumentRepository(session)
         self.ai_query_repository = AiQueryRepository(session)
+
+    def _doc_type_allowed(self, doc_type: str | None) -> bool:
+        if not doc_type or self.allowed_doc_types is None:
+            return True
+        return doc_type in self.allowed_doc_types
+
+    def _resolve_doc_type(self, params: dict[str, Any]) -> str | None:
+        doc_type = params.get("doc_type")
+        if doc_type and not self._doc_type_allowed(doc_type):
+            return "__denied__"
+        return doc_type
+
+    def _filter_rows(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if self.allowed_doc_types is None:
+            return rows
+        return [row for row in rows if row.get("doc_type") in self.allowed_doc_types]
+
+    def _filter_documents(self, documents) -> list:
+        if self.allowed_doc_types is None:
+            return documents
+        return [doc for doc in documents if doc.doc_type in self.allowed_doc_types]
 
     def execute(self, tool_name: str, arguments: str | dict[str, Any]) -> dict[str, Any]:
         params = parse_tool_arguments(arguments)
@@ -214,23 +241,30 @@ class AiDbToolExecutor:
                 code="invalid_tool_arguments",
             )
         limit = min(int(params.get("limit", 20)), 50)
+        doc_type = self._resolve_doc_type(params)
+        if doc_type == "__denied__":
+            return {"total": 0, "items": []}
         items, total = self.search_repository.search(
             tenant_id=self.tenant_id,
             query=query,
-            doc_type=params.get("doc_type"),
+            doc_type=doc_type,
             status=params.get("status"),
             counterparty_name=params.get("counterparty_name"),
             limit=limit,
             offset=0,
         )
-        serialized = [_serialize_row(item) for item in items]
-        return {"total": total, "items": serialized}
+        filtered = self._filter_rows(items)
+        serialized = [_serialize_row(item) for item in filtered]
+        return {"total": len(filtered), "items": serialized}
 
     def _list_documents(self, params: dict[str, Any]) -> dict[str, Any]:
         limit = min(int(params.get("limit", 20)), 50)
+        doc_type = self._resolve_doc_type(params)
+        if doc_type == "__denied__":
+            return {"total": 0, "items": []}
         items, total = self.document_repository.list_for_tenant(
             tenant_id=self.tenant_id,
-            doc_type=params.get("doc_type"),
+            doc_type=doc_type,
             status=params.get("status"),
             counterparty_name=params.get("counterparty_name"),
             document_date_from=_parse_date(params.get("document_date_from")),
@@ -238,22 +272,27 @@ class AiDbToolExecutor:
             limit=limit,
             offset=0,
         )
-        serialized = [_serialize_document(doc) for doc in items]
-        return {"total": total, "items": serialized}
+        filtered = self._filter_documents(items)
+        serialized = [_serialize_document(doc) for doc in filtered]
+        return {"total": len(filtered), "items": serialized}
 
     def _find_by_extracted_field(self, params: dict[str, Any]) -> dict[str, Any]:
         limit = min(int(params.get("limit", 20)), 50)
+        doc_type = self._resolve_doc_type(params)
+        if doc_type == "__denied__":
+            return {"total": 0, "items": []}
         items, total = self.ai_query_repository.find_by_extracted_field(
             tenant_id=self.tenant_id,
             field_name=params.get("field_name"),
             field_value=params.get("field_value"),
-            doc_type=params.get("doc_type"),
+            doc_type=doc_type,
             status=params.get("status"),
             limit=limit,
             offset=0,
         )
-        serialized = [_serialize_row(item) for item in items]
-        return {"total": total, "items": serialized}
+        filtered = self._filter_rows(items)
+        serialized = [_serialize_row(item) for item in filtered]
+        return {"total": len(filtered), "items": serialized}
 
     def _group_documents(self, params: dict[str, Any]) -> dict[str, Any]:
         group_by = params.get("group_by")
@@ -264,11 +303,14 @@ class AiDbToolExecutor:
                 code="invalid_tool_arguments",
             )
         limit = min(int(params.get("limit", 50)), 100)
+        doc_type = self._resolve_doc_type(params)
+        if doc_type == "__denied__":
+            return {"groups": [], "group_by": group_by}
         try:
             groups = self.ai_query_repository.group_documents(
                 tenant_id=self.tenant_id,
                 group_by=group_by,
-                doc_type=params.get("doc_type"),
+                doc_type=doc_type,
                 status=params.get("status"),
                 document_date_from=_parse_date(params.get("document_date_from")),
                 document_date_to=_parse_date(params.get("document_date_to")),
@@ -280,6 +322,8 @@ class AiDbToolExecutor:
                 status_code=400,
                 code="invalid_tool_arguments",
             ) from exc
+        if group_by == "doc_type":
+            groups = [group for group in groups if self._doc_type_allowed(group.get("group_key"))]
         serialized = [_serialize_row(group) for group in groups]
         return {"groups": serialized, "group_by": group_by}
 

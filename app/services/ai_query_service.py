@@ -20,7 +20,13 @@ class AiQueryService:
         self.settings = settings
         self.llm_client = LlmClient(settings)
 
-    def ask(self, *, tenant_id: UUID, question: str) -> AiQueryResponse:
+    def ask(
+        self,
+        *,
+        tenant_id: UUID,
+        question: str,
+        allowed_doc_types: list[str] | None = None,
+    ) -> AiQueryResponse:
         question = question.strip()
         if not question:
             raise ApplicationError(
@@ -29,7 +35,7 @@ class AiQueryService:
                 code="empty_question",
             )
 
-        executor = AiDbToolExecutor(self.session, tenant_id)
+        executor = AiDbToolExecutor(self.session, tenant_id, allowed_doc_types)
         messages: list[dict] = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": question},

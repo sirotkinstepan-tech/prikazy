@@ -1,0 +1,78 @@
+{% extends "base_portal.html" %}
+{% block title %}Загрузить документ{% endblock %}
+{% set section_tab_base = "/portal/upload" %}
+{% set show_all_section_tab = false %}
+{% block content %}
+<section class="portal-page">
+  <h1>Загрузить документ</h1>
+  <p class="page-subtitle">Выберите раздел и файл — система распознает текст для поиска</p>
+
+  {% if success %}
+  <div class="alert alert-success">
+    ✓ Документ загружен и отправлен на обработку. Через минуту он появится в базе.
+  </div>
+  {% endif %}
+
+  <form method="post" action="/portal/upload" enctype="multipart/form-data" class="upload-form">
+    {% include "csrf_field.html" %}
+    <label class="upload-section-select">
+      <span>Раздел</span>
+      <select name="doc_type" required>
+        {% if upload_sections is defined %}
+          {% for section in upload_sections %}
+          <option value="{{ section.slug }}" {% if current_section == section.slug %}selected{% endif %}>{{ section.label }}</option>
+          {% endfor %}
+        {% else %}
+          {% for section in document_sections() %}
+          <option value="{{ section.slug }}" {% if current_section == section.slug %}selected{% endif %}>{{ section.label }}</option>
+          {% endfor %}
+        {% endif %}
+      </select>
+    </label>
+
+    <div class="upload-dropzone" id="dropzone">
+      <div class="upload-dropzone-icon">📁</div>
+      <p><strong>Перетащите файл сюда</strong> или нажмите для выбора</p>
+      <p class="muted">PDF, Word, Excel, PNG, JPEG — до 50 МБ</p>
+      <input type="file" name="file" id="file-input" required accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg,.tiff">
+      <div id="file-name" class="file-name"></div>
+    </div>
+
+    <div class="form-grid">
+      <label>
+        <span>Название</span>
+        <input type="text" name="title" placeholder="Например: Приказ №123 от 15.05.2026">
+      </label>
+      <label>
+        <span>Дата документа</span>
+        <input type="date" name="document_date">
+      </label>
+      <label class="form-grid-full">
+        <span>Контрагент / подразделение</span>
+        <input type="text" name="counterparty_name" placeholder="Для договоров — название контрагента или отдела">
+      </label>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-block">Загрузить</button>
+  </form>
+</section>
+<script>
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('file-input');
+  const fileName = document.getElementById('file-name');
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+      fileInput.files = e.dataTransfer.files;
+      fileName.textContent = e.dataTransfer.files[0].name;
+    }
+  });
+  fileInput.addEventListener('change', () => {
+    fileName.textContent = fileInput.files[0]?.name || '';
+  });
+</script>
+{% endblock %}

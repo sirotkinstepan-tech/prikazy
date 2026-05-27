@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Просмотр оригинала документа</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs" type="module"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.3/dist/docx-preview.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4f;
+      --text: #e8eef7;
+      --muted: #8fa3bf;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+      flex: 1 1 200px;
+    }
+    .meta { font-size: 0.85rem; color: var(--muted); }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    label { font-size: 0.8rem; color: var(--muted); }
+    input[type="text"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 0.85rem;
+      min-width: 280px;
+    }
+    button, a.btn {
+      appearance: none;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button.primary, a.btn.primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    button.primary:hover, a.btn.primary:hover { background: var(--accent-hover); }
+    button.secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.secondary:hover { border-color: var(--muted); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      position: relative;
+    }
+    #status {
+      padding: 10px 20px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    #status.error { color: #f87171; }
+    #preview-wrap {
+      flex: 1;
+      overflow: auto;
+      background: #1e1e1e;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      padding: 16px;
+      min-height: calc(100vh - 120px);
+    }
+    #pdf-canvas-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+      max-width: 1200px;
+    }
+    #pdf-canvas-wrap canvas {
+      display: block;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+      background: #fff;
+      max-width: 100%;
+      height: auto;
+    }
+    #image-preview {
+      max-width: 100%;
+      height: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+      transform-origin: center top;
+      background: #fff;
+    }
+    #docx-container {
+      background: #fff;
+      color: #111;
+      padding: 48px 56px;
+      max-width: 900px;
+      width: 100%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+      min-height: 400px;
+    }
+    #docx-container .docx-wrapper { background: #fff !important; }
+    .empty-hint {
+      text-align: center;
+      color: var(--muted);
+      padding: 48px 24px;
+      max-width: 520px;
+      line-height: 1.6;
+    }
+    .pdf-toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      width: 100%;
+      max-width: 1200px;
+      justify-content: center;
+      padding-bottom: 8px;
+    }
+    .pdf-toolbar span { font-size: 0.85rem; color: var(--muted); min-width: 100px; text-align: center; }
+    #download-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 10px 20px;
+      background: #15202b;
+      border-bottom: 1px solid var(--border);
+    }
+    #download-bar .file-info {
+      font-size: 0.85rem;
+      color: var(--muted);
+      flex: 1 1 240px;
+    }
+    #download-bar .file-info strong { color: var(--text); }
+    button.download {
+      background: #16a34a;
+      color: #fff;
+      font-weight: 600;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      box-shadow: 0 2px 8px rgba(22, 163, 74, 0.35);
+    }
+    button.download:hover:not(:disabled) { background: #15803d; }
+    button.download:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    button.download .icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    #preview-download {
+      position: sticky;
+      top: 12px;
+      z-index: 10;
+      align-self: flex-end;
+      margin-left: auto;
+      margin-bottom: -48px;
+      margin-right: 8px;
+      display: none;
+    }
+    #preview-download.visible { display: inline-flex; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="doc-title">Просмотр оригинала документа</h1>
+    <div class="controls">
+      <div>
+        <label for="document-id">document_id</label><br />
+        <input id="document-id" type="text" placeholder="uuid документа" />
+      </div>
+      <button type="button" class="primary" id="btn-open">Открыть</button>
+      <button type="button" class="download" id="btn-download-header" disabled title="Сначала укажите document_id">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M12 3v12m0 0l4-4m-4 4L8 11"/>
+          <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+        </svg>
+        Скачать прикреплённый файл
+      </button>
+      <button type="button" class="secondary" id="btn-zoom-out" style="display:none">−</button>
+      <button type="button" class="secondary" id="btn-zoom-in" style="display:none">+</button>
+    </div>
+  </header>
+  <div id="download-bar">
+    <div class="file-info" id="file-info">Укажите document_id и нажмите «Открыть» — здесь появится имя прикреплённого файла.</div>
+    <button type="button" class="download" id="btn-download" disabled>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M12 3v12m0 0l4-4m-4 4L8 11"/>
+        <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+      </svg>
+      Скачать прикреплённый файл
+    </button>
+  </div>
+  <div id="status"></div>
+  <main>
+    <div id="preview-wrap">
+      <button type="button" class="download" id="preview-download" disabled>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M12 3v12m0 0l4-4m-4 4L8 11"/>
+          <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+        </svg>
+        Скачать прикреплённый файл
+      </button>
+      <p class="empty-hint" id="empty-hint">
+        Войдите в систему, укажите <code>document_id</code> и нажмите «Открыть».
+        Пример URL: <code>/viewer?document_id=...</code>
+      </p>
+      <div id="pdf-canvas-wrap" hidden>
+        <div class="pdf-toolbar">
+          <button type="button" class="secondary" id="btn-pdf-prev">←</button>
+          <span id="pdf-page-label">1 / 1</span>
+          <button type="button" class="secondary" id="btn-pdf-next">→</button>
+          <button type="button" class="secondary" id="btn-pdf-zoom-out">PDF −</button>
+          <button type="button" class="secondary" id="btn-pdf-zoom-in">PDF +</button>
+        </div>
+      </div>
+      <img id="image-preview" alt="" hidden />
+      <div id="docx-container" hidden></div>
+    </div>
+  </main>
+  <script type="module">
+    import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+
+    const params = new URLSearchParams(location.search);
+    const documentInput = document.getElementById("document-id");
+    let csrfToken = "";
+    const statusEl = document.getElementById("status");
+    const emptyHint = document.getElementById("empty-hint");
+    const pdfWrap = document.getElementById("pdf-canvas-wrap");
+    const imagePreview = document.getElementById("image-preview");
+    const docxContainer = document.getElementById("docx-container");
+    const docTitle = document.getElementById("doc-title");
+    const downloadBar = document.getElementById("download-bar");
+    const fileInfo = document.getElementById("file-info");
+    const btnDownload = document.getElementById("btn-download");
+    const btnDownloadHeader = document.getElementById("btn-download-header");
+    const btnPreviewDownload = document.getElementById("preview-download");
+    const btnZoomIn = document.getElementById("btn-zoom-in");
+    const btnZoomOut = document.getElementById("btn-zoom-out");
+    const pdfPageLabel = document.getElementById("pdf-page-label");
+
+    documentInput.value = params.get("document_id") || "";
+
+    async function loadCsrfToken() {
+      const response = await fetch("/auth/csrf", { credentials: "include" });
+      if (!response.ok) {
+        throw new Error("Требуется вход в систему");
+      }
+      const payload = await response.json();
+      csrfToken = payload.csrf_token;
+    }
+
+    function apiFetch(url, options = {}) {
+      const headers = new Headers(options.headers || {});
+      if (csrfToken) {
+        headers.set("X-CSRF-Token", csrfToken);
+      }
+      return fetch(url, { ...options, credentials: "include", headers });
+    }
+
+    let pdfDoc = null;
+    let pdfPage = 1;
+    let pdfScale = 2;
+    let imageScale = 1;
+    let currentDoc = null;
+    const DOWNLOAD_LABEL = "Скачать прикреплённый файл";
+    const DOWNLOAD_BTN_HTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M12 3v12m0 0l4-4m-4 4L8 11"/>
+      <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+    </svg> ${DOWNLOAD_LABEL}`;
+
+    function allDownloadButtons() {
+      return [btnDownload, btnDownloadHeader, btnPreviewDownload];
+    }
+
+    function canDownload() {
+      return Boolean(documentInput.value.trim());
+    }
+
+    function updateDownloadButtonsState() {
+      const enabled = canDownload();
+      allDownloadButtons().forEach((button) => {
+        button.disabled = !enabled;
+        button.title = enabled
+          ? "Скачать оригинал прикреплённого файла"
+          : "Укажите document_id";
+      });
+      btnPreviewDownload.classList.toggle("visible", enabled);
+    }
+
+    function formatSize(bytes) {
+      if (!bytes && bytes !== 0) return "";
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function downloadUrl() {
+      const documentId = documentInput.value.trim();
+      return `/documents/${documentId}/download`;
+    }
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text;
+      statusEl.className = isError ? "error" : "";
+    }
+
+    function fileUrl(disposition) {
+      const documentId = documentInput.value.trim();
+      return `/documents/${documentId}/file?disposition=${disposition}`;
+    }
+
+    function hidePreviews() {
+      emptyHint.hidden = true;
+      pdfWrap.hidden = true;
+      imagePreview.hidden = true;
+      docxContainer.hidden = true;
+      [...pdfWrap.querySelectorAll("canvas")].forEach((c) => c.remove());
+    }
+
+    function parseFilenameFromDisposition(header) {
+      if (!header) return null;
+      const star = /filename\*=UTF-8''([^;]+)/i.exec(header);
+      if (star) {
+        try { return decodeURIComponent(star[1]); } catch { return star[1]; }
+      }
+      const plain = /filename="([^"]+)"/i.exec(header);
+      return plain ? plain[1] : null;
+    }
+
+    function setDownloadButtonsBusy(busy) {
+      allDownloadButtons().forEach((button) => {
+        button.disabled = busy || !canDownload();
+        button.innerHTML = busy ? "Скачивание…" : DOWNLOAD_BTN_HTML;
+      });
+    }
+
+    async function downloadOriginal() {
+      if (!canDownload()) {
+        setStatus("Укажите document_id", true);
+        return;
+      }
+      setDownloadButtonsBusy(true);
+      try {
+        const response = await apiFetch(downloadUrl());
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body?.error?.message || response.statusText);
+        }
+        const blob = await response.blob();
+        const filename =
+          parseFilenameFromDisposition(response.headers.get("Content-Disposition")) ||
+          currentDoc?.source_filename ||
+          "document";
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = filename;
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+        setStatus(`Файл сохранён: ${filename}`);
+      } catch (err) {
+        setStatus(err.message || String(err), true);
+      } finally {
+        setDownloadButtonsBusy(false);
+        updateDownloadButtonsState();
+      }
+    }
+
+    function showDownloadBar(doc) {
+      currentDoc = doc;
+      const filename = doc.source_filename || "document";
+      fileInfo.innerHTML =
+        `Прикреплённый файл: <strong>${filename}</strong> · ${formatSize(doc.size_bytes)} · ${doc.mime_type}`;
+      updateDownloadButtonsState();
+    }
+
+    function hideDownloadBar() {
+      currentDoc = null;
+      fileInfo.textContent =
+        "Укажите document_id и нажмите «Открыть» — здесь появится имя прикреплённого файла.";
+      updateDownloadButtonsState();
+    }
+
+    async function renderPdfPage() {
+      if (!pdfDoc) return;
+      const page = await pdfDoc.getPage(pdfPage);
+      const viewport = page.getViewport({ scale: pdfScale });
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      [...pdfWrap.querySelectorAll("canvas")].forEach((c) => c.remove());
+      pdfWrap.appendChild(canvas);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      pdfPageLabel.textContent = `${pdfPage} / ${pdfDoc.numPages}`;
+      document.getElementById("btn-pdf-prev").disabled = pdfPage <= 1;
+      document.getElementById("btn-pdf-next").disabled = pdfPage >= pdfDoc.numPages;
+    }
+
+    async function showPdf() {
+      hidePreviews();
+      pdfWrap.hidden = false;
+      setStatus("Загрузка PDF…");
+      const response = await apiFetch(fileUrl("inline"));
+      if (!response.ok) throw new Error(await response.text() || response.statusText);
+      const buffer = await response.arrayBuffer();
+      pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise;
+      pdfPage = 1;
+      await renderPdfPage();
+      setStatus(`PDF, ${pdfDoc.numPages} стр., масштаб ${pdfScale}x`);
+    }
+
+    async function showImage() {
+      hidePreviews();
+      imagePreview.hidden = false;
+      imagePreview.src = fileUrl("inline");
+      imageScale = 1;
+      imagePreview.style.transform = "scale(1)";
+      btnZoomIn.style.display = btnZoomOut.style.display = "inline-flex";
+      setStatus("Изображение");
+    }
+
+    async function showDocx() {
+      hidePreviews();
+      docxContainer.hidden = false;
+      docxContainer.innerHTML = "";
+      setStatus("Загрузка Word…");
+      const response = await apiFetch(fileUrl("inline"));
+      if (!response.ok) throw new Error(await response.text() || response.statusText);
+      const blob = await response.blob();
+      await docx.renderAsync(blob, docxContainer, null, {
+        className: "docx",
+        inWrapper: true,
+        ignoreWidth: false,
+        ignoreHeight: false,
+        breakPages: true,
+      });
+      setStatus("Документ Word");
+    }
+
+    function showUnsupported(mime, filename) {
+      hidePreviews();
+      emptyHint.hidden = false;
+      emptyHint.innerHTML =
+        `Предпросмотр для <code>${mime}</code> в браузере недоступен.` +
+        ` Нажмите «Скачать прикреплённый файл» для <strong>${filename || "документ"}</strong>.`;
+      setStatus("Скачайте файл для просмотра в приложении");
+    }
+
+    async function openDocument() {
+      const documentId = documentInput.value.trim();
+      if (!documentId) {
+        setStatus("Укажите document_id", true);
+        return;
+      }
+      const url = new URL(location.href);
+      url.searchParams.set("document_id", documentId);
+      history.replaceState(null, "", url);
+
+      btnZoomIn.style.display = btnZoomOut.style.display = "none";
+      hideDownloadBar();
+      pdfDoc = null;
+      setStatus("Загрузка метаданных…");
+
+      try {
+        const metaRes = await apiFetch(`/documents/${documentId}`);
+        if (!metaRes.ok) {
+          const body = await metaRes.json().catch(() => ({}));
+          throw new Error(body?.error?.message || metaRes.statusText);
+        }
+        const doc = await metaRes.json();
+        const title = doc.title || doc.source_filename || "Документ";
+        docTitle.textContent = title;
+        showDownloadBar(doc);
+
+        const mime = (doc.mime_type || "").toLowerCase();
+        if (mime === "application/pdf") {
+          await showPdf();
+        } else if (mime.startsWith("image/")) {
+          await showImage();
+        } else if (
+          mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+          mime === "application/msword"
+        ) {
+          await showDocx();
+        } else {
+          showUnsupported(mime, doc.source_filename);
+        }
+      } catch (err) {
+        hideDownloadBar();
+        hidePreviews();
+        emptyHint.hidden = false;
+        setStatus(err.message || String(err), true);
+      }
+    }
+
+    allDownloadButtons().forEach((button) => {
+      button.addEventListener("click", downloadOriginal);
+    });
+    documentInput.addEventListener("input", updateDownloadButtonsState);
+    document.getElementById("btn-open").addEventListener("click", openDocument);
+    updateDownloadButtonsState();
+    document.getElementById("btn-pdf-prev").addEventListener("click", async () => {
+      if (pdfPage > 1) { pdfPage -= 1; await renderPdfPage(); }
+    });
+    document.getElementById("btn-pdf-next").addEventListener("click", async () => {
+      if (pdfDoc && pdfPage < pdfDoc.numPages) { pdfPage += 1; await renderPdfPage(); }
+    });
+    document.getElementById("btn-pdf-zoom-in").addEventListener("click", async () => {
+      pdfScale = Math.min(pdfScale + 0.5, 4);
+      await renderPdfPage();
+    });
+    document.getElementById("btn-pdf-zoom-out").addEventListener("click", async () => {
+      pdfScale = Math.max(pdfScale - 0.5, 1);
+      await renderPdfPage();
+    });
+    btnZoomIn.addEventListener("click", () => {
+      imageScale = Math.min(imageScale + 0.25, 3);
+      imagePreview.style.transform = `scale(${imageScale})`;
+    });
+    btnZoomOut.addEventListener("click", () => {
+      imageScale = Math.max(imageScale - 0.25, 0.5);
+      imagePreview.style.transform = `scale(${imageScale})`;
+    });
+
+    loadCsrfToken()
+      .then(() => {
+        if (documentInput.value.trim()) {
+          return openDocument();
+        }
+      })
+      .catch((err) => setStatus(err.message || String(err), true));
+  </script>
+</body>
+</html>

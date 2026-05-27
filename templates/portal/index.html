@@ -1,0 +1,66 @@
+{% extends "base_portal.html" %}
+{% block title %}Главная{% endblock %}
+{% block content %}
+<section class="portal-hero">
+  <h1>Добро пожаловать, {{ user.full_name.split()[0] }}!</h1>
+  <p>Загружайте приказы, договоры и ЛНА — находите нужные документы в базе за несколько секунд.</p>
+  <div class="portal-hero-actions">
+    <a href="/portal/upload" class="btn btn-primary btn-lg">📤 Загрузить документ</a>
+    <a href="/portal/search" class="btn btn-secondary btn-lg">🔍 Найти документ</a>
+  </div>
+</section>
+
+<section class="portal-stats">
+  <div class="stat-card">
+    <div class="stat-value">{{ total_documents }}</div>
+    <div class="stat-label">документов в базе</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{% if has_processed %}✓{% else %}…{% endif %}</div>
+    <div class="stat-label">поиск по тексту</div>
+  </div>
+</section>
+
+<section class="portal-section">
+  <div class="section-header">
+    <h2>Разделы</h2>
+  </div>
+  <div class="section-cards">
+    {% for section in document_sections() %}
+    <a href="/portal/documents?section={{ section.slug }}" class="section-card">
+      <strong>{{ section.label }}</strong>
+      <span class="muted">Открыть базу раздела →</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="portal-section">
+  <div class="section-header">
+    <h2>Недавние документы</h2>
+    <a href="/portal/documents" class="link">Все документы →</a>
+  </div>
+  {% if recent_documents %}
+  <div class="doc-cards">
+    {% for doc in recent_documents %}
+    <a href="/portal/documents/{{ doc.id }}" class="doc-card">
+      <div class="doc-card-icon">📄</div>
+      <div class="doc-card-body">
+        <div class="doc-card-title">{{ doc.title or doc.source_filename or "Без названия" }}</div>
+        <div class="doc-card-meta">
+          <span class="badge badge-section">{{ section_label(doc.doc_type) }}</span>
+          <span class="badge {{ status_class(doc.status) }}">{{ status_label(doc.status) }}</span>
+          <span>{{ format_date(doc.created_at) }}</span>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <p>Пока нет документов. Загрузите первый файл!</p>
+    <a href="/portal/upload" class="btn btn-primary">Загрузить документ</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

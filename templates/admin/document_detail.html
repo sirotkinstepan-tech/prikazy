@@ -1,0 +1,171 @@
+{% extends "base_admin.html" %}
+{% block title %}Документ{% endblock %}
+{% block page_title %}{{ document.title or document.source_filename or "Документ" }}{% endblock %}
+{% block topbar_actions %}
+<form method="post" action="/admin/documents/{{ document.id }}/reprocess" class="inline-form">
+  {% include "csrf_field.html" %}
+  <button type="submit" class="btn btn-secondary btn-sm">↻ Переобработать</button>
+</form>
+{% endblock %}
+{% block content %}
+{% if link_success %}
+<div class="alert alert-success">Связь сохранена.</div>
+{% endif %}
+{% if link_error %}
+<div class="alert alert-error">
+  {% if link_error == 'invalid_target' %}Укажите корректный UUID связанного документа
+  {% elif link_error == 'link_already_exists' %}Такая связь уже есть
+  {% elif link_error == 'self_link_forbidden' %}Нельзя связать документ с самим собой
+  {% elif link_error == 'document_not_found' %}Связанный документ не найден
+  {% else %}Не удалось изменить связь{% endif %}
+</div>
+{% endif %}
+
+<div class="admin-detail-grid">
+  <section class="admin-panel">
+    <h2>Метаданные</h2>
+    <dl class="detail-list">
+      <dt>ID документа</dt>
+      <dd class="doc-id-row">
+        <code id="document-uuid">{{ document.id }}</code>
+        <button type="button" class="btn btn-ghost btn-sm" id="copy-document-uuid">Скопировать</button>
+      </dd>
+      <dt>Tenant</dt><dd><code>{{ document.tenant_id }}</code></dd>
+      <dt>Файл</dt><dd>{{ document.source_filename or "—" }}</dd>
+      <dt>MIME</dt><dd><code>{{ document.mime_type }}</code></dd>
+      <dt>SHA-256</dt><dd><code class="mono-sm">{{ document.sha256[:16] }}…</code></dd>
+      <dt>Тип</dt><dd>{{ section_label(document.doc_type) if document.doc_type else "—" }}</dd>
+      <dt>Контрагент</dt><dd>{{ document.counterparty_name or "—" }}</dd>
+      <dt>Дата док.</dt><dd>{{ format_date(document.document_date) }}</dd>
+      <dt>Статус</dt><dd><span class="badge {{ status_class(document.status) }}">{{ status_label(document.status) }}</span></dd>
+      <dt>Загружен</dt><dd>{{ format_date(document.created_at) }}</dd>
+      <dt>Обновлён</dt><dd>{{ format_date(document.updated_at) }}</dd>
+    </dl>
+  </section>
+
+  <section class="admin-panel admin-panel-wide">
+    <h2>Связанные документы</h2>
+    <p class="muted">Связывайте договоры с допсоглашениями, приложениями и другими документами. Связи видны в карточке и в результатах поиска.</p>
+
+    {% if related_documents %}
+    <ul class="related-doc-list">
+      {% for rel in related_documents %}
+      <li class="related-doc-item">
+        <div>
+          <a href="/admin/documents/{{ rel.document_id }}">
+            <strong>{{ rel.title or rel.source_filename or "Без названия" }}</strong>
+          </a>
+          <span class="muted"> · {{ section_label(rel.doc_type) }}</span>
+          {% if rel.link_label %}<span class="badge badge-neutral">{{ rel.link_label }}</span>{% endif %}
+          {% if rel.direction == 'incoming' %}<span class="badge badge-info">входящая связь</span>{% endif %}
+        </div>
+        <form method="post" action="/admin/documents/{{ document.id }}/links/{{ rel.relation_id }}/delete" class="inline-form">
+          {% include "csrf_field.html" %}
+          <button type="submit" class="btn btn-ghost btn-sm">Удалить</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">Связей пока нет.</p>
+    {% endif %}
+
+    <form method="post" action="/admin/documents/{{ document.id }}/links" class="admin-form related-link-form">
+      {% include "csrf_field.html" %}
+      <p class="muted field-hint">
+        Откройте второй документ в админке (<a href="/admin/documents">база</a> или <a href="/admin/search">поиск</a>),
+        скопируйте его ID из блока «Метаданные» или из адресной строки:
+        <code>/admin/documents/…</code>
+      </p>
+      <label>
+        <span>ID связанного документа *</span>
+        <input type="text" name="target_document_id" required placeholder="Например: {{ document.id }}">
+      </label>
+      <label>
+        <span>Подпись связи</span>
+        <input type="text" name="link_label" placeholder="Например: доп. соглашение № 3">
+      </label>
+      <button type="submit" class="btn btn-primary btn-sm">Добавить связь</button>
+    </form>
+  </section>
+
+  {% if document.latest_job %}
+  <section class="admin-panel">
+    <h2>Последняя задача</h2>
+    <dl class="detail-list">
+      <dt>Job ID</dt><dd><code class="mono-sm">{{ document.latest_job.id }}</code></dd>
+      <dt>Тип</dt><dd>{{ document.latest_job.job_type }}</dd>
+      <dt>Статус</dt><dd>{{ document.latest_job.status }}</dd>
+      <dt>Попытка</dt><dd>{{ document.latest_job.attempt }} / {{ document.latest_job.max_attempts }}</dd>
+      {% if document.latest_job.error_message %}
+      <dt>Ошибка</dt><dd class="text-error">{{ document.latest_job.error_message }}</dd>
+      {% endif %}
+    </dl>
+  </section>
+  {% endif %}
+
+  {% if ocr_result %}
+  <section class="admin-panel admin-panel-wide">
+    <h2>OCR результат</h2>
+    <div class="admin-meta-row">
+      <span>Provider: <code>{{ ocr_result.provider }}</code></span>
+      <span>Confidence: {{ ocr_result.confidence or "—" }}</span>
+      <span>{{ format_date(ocr_result.processed_at) }}</span>
+    </div>
+    <pre class="ocr-text">{{ ocr_result.full_text }}</pre>
+  </section>
+  {% endif %}
+
+  {% if extracted_fields %}
+  <section class="admin-panel">
+    <h2>Извлечённые поля</h2>
+    <table class="admin-table">
+      <thead><tr><th>Поле</th><th>Значение</th><th>Confidence</th></tr></thead>
+      <tbody>
+        {% for field in extracted_fields %}
+        <tr>
+          <td><code>{{ field.field_name }}</code></td>
+          <td>{{ field.field_value }}</td>
+          <td>{{ field.confidence or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  {% if events %}
+  <section class="admin-panel admin-panel-wide">
+    <h2>Журнал событий</h2>
+    <table class="admin-table">
+      <thead><tr><th>Время</th><th>Тип</th><th>Сообщение</th></tr></thead>
+      <tbody>
+        {% for event in events %}
+        <tr>
+          <td class="muted">{{ format_date(event.created_at) }}</td>
+          <td><code>{{ event.event_type }}</code></td>
+          <td>{{ event.message or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+</div>
+<script>
+(function () {
+  const btn = document.getElementById('copy-document-uuid');
+  const el = document.getElementById('document-uuid');
+  if (!btn || !el) return;
+  btn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(el.textContent.trim());
+      btn.textContent = 'Скопировано';
+      setTimeout(() => { btn.textContent = 'Скопировать'; }, 1500);
+    } catch (_) {
+      window.prompt('Скопируйте ID:', el.textContent.trim());
+    }
+  });
+})();
+</script>
+{% endblock %}

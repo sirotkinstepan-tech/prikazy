@@ -1,71 +1,73 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, Header
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.auth.service import AuthService, AuthenticatedUser
 from app.core.config import Settings, get_settings
-from app.core.errors import ApplicationError
+from app.core.errors import AuthRedirect
 from app.db.session import get_db_session
-from app.models.enums import AccessLevel
-from app.services.auth_service import AuthService, AuthenticatedUser
+from app.models.enums import UserRole
+from app.security.csrf import verify_csrf_header
+from app.web.section_access import require_ai_access
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DbSessionDep = Annotated[Session, Depends(get_db_session)]
 
-_bearer_scheme = HTTPBearer(auto_error=False)
+SESSION_USER_ID_KEY = "user_id"
 
 
-def _extract_bearer_token(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
-    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
-) -> str | None:
-    if credentials is not None and credentials.scheme.lower() == "bearer":
-        return credentials.credentials
-    if x_api_key:
-        return x_api_key.strip()
-    return None
+def _load_user(request: Request, session: Session) -> AuthenticatedUser | None:
+    raw_user_id = request.session.get(SESSION_USER_ID_KEY)
+    if not raw_user_id:
+        return None
+    try:
+        user_id = UUID(str(raw_user_id))
+    except ValueError:
+        return None
+    return AuthService(session).get_user(user_id)
 
 
-def get_current_user(
-    session: DbSessionDep,
-    raw_token: Annotated[str | None, Depends(_extract_bearer_token)],
-) -> AuthenticatedUser:
-    if not raw_token:
-        raise ApplicationError(
-            "Authorization required. Provide Bearer token or X-API-Key header.",
-            status_code=401,
-            code="missing_token",
-        )
-    return AuthService(session).authenticate(raw_token)
-
-
-CurrentUserDep = Annotated[AuthenticatedUser, Depends(get_current_user)]
-
-
-def require_full_access_user(
-    session: DbSessionDep,
-    settings: SettingsDep,
-    tenant_id: UUID,
-    raw_token: Annotated[str | None, Depends(_extract_bearer_token)],
-) -> AuthenticatedUser:
-    if not settings.auth_required_for_ai:
-        return AuthenticatedUser(
-            user_id=UUID(int=0),
-            tenant_id=tenant_id,
-            name="dev-bypass",
-            access_level=AccessLevel.FULL_ACCESS,
-        )
-    if not raw_token:
-        raise ApplicationError(
-            "Authorization required. Provide Bearer token or X-API-Key header.",
-            status_code=401,
-            code="missing_token",
-        )
-    user = AuthService(session).authenticate(raw_token)
-    AuthService(session).require_full_access(user, tenant_id)
+def get_current_user(request: Request, session: DbSessionDep) -> AuthenticatedUser:
+    user = _load_user(request, session)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return user
 
 
-FullAccessUserDep = Annotated[AuthenticatedUser, Depends(require_full_access_user)]
+def get_optional_user(request: Request, session: DbSessionDep) -> AuthenticatedUser | None:
+    return _load_user(request, session)
+
+
+def require_admin(user: Annotated[AuthenticatedUser, Depends(get_current_user)]) -> AuthenticatedUser:
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user
+
+
+def require_web_user(request: Request, session: DbSessionDep) -> AuthenticatedUser:
+    user = _load_user(request, session)
+    if user is None:
+        raise AuthRedirect("/login")
+    return user
+
+
+def require_web_admin(user: Annotated[AuthenticatedUser, Depends(require_web_user)]) -> AuthenticatedUser:
+    if user.role != UserRole.ADMIN:
+        raise AuthRedirect("/portal/")
+    return user
+
+
+def require_ai_user(user: Annotated[AuthenticatedUser, Depends(get_current_user)]) -> AuthenticatedUser:
+    require_ai_access(user)
+    return user
+
+
+CurrentUserDep = Annotated[AuthenticatedUser, Depends(get_current_user)]
+OptionalUserDep = Annotated[AuthenticatedUser | None, Depends(get_optional_user)]
+AdminUserDep = Annotated[AuthenticatedUser, Depends(require_admin)]
+WebUserDep = Annotated[AuthenticatedUser, Depends(require_web_user)]
+WebAdminDep = Annotated[AuthenticatedUser, Depends(require_web_admin)]
+AiUserDep = Annotated[AuthenticatedUser, Depends(require_ai_user)]
+CsrfHeaderDep = Annotated[None, Depends(verify_csrf_header)]

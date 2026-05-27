@@ -54,6 +54,9 @@ class DocumentRead(BaseModel):
     updated_at: datetime
     storage_object: StorageObjectRead | None = None
     latest_job: ProcessingJobRead | None = None
+    preview_url: str | None = None
+    download_url: str | None = None
+    viewer_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

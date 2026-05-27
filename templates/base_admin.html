@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Админ{% endblock %} — Приказы</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body class="admin-body">
+  <aside class="admin-sidebar">
+    <div class="admin-brand">
+      <span class="admin-brand-icon">⚙️</span>
+      <div>
+        <strong>Приказы</strong>
+        <small>Админ-панель</small>
+      </div>
+    </div>
+    <nav class="admin-nav">
+      <a href="/admin/" {% if request.url.path == "/admin/" %}class="active"{% endif %}>Дашборд</a>
+      <a href="/admin/documents" {% if "/documents" in request.url.path %}class="active"{% endif %}>Документы</a>
+      <a href="/admin/upload" {% if "/upload" in request.url.path %}class="active"{% endif %}>Загрузка</a>
+      <a href="/admin/search" {% if "/search" in request.url.path %}class="active"{% endif %}>Поиск</a>
+      <a href="/admin/users" {% if "/users" in request.url.path %}class="active"{% endif %}>Пользователи</a>
+      <a href="/docs" target="_blank">API Docs</a>
+    </nav>
+    <div class="admin-sidebar-footer">
+      <div class="admin-user-info">
+        <strong>{{ user.full_name }}</strong>
+        <small>{{ user.email }}</small>
+      </div>
+      <form method="post" action="/logout">
+        {% include "csrf_field.html" %}
+        <button type="submit" class="btn btn-ghost btn-sm btn-block">Выйти</button>
+      </form>
+    </div>
+  </aside>
+  <div class="admin-content">
+    <header class="admin-topbar">
+      <h1>{% block page_title %}Админ{% endblock %}</h1>
+      {% block topbar_actions %}{% endblock %}
+    </header>
+    <main class="admin-main">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

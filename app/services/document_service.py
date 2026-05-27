@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.core.document_sections import validate_doc_type
 from app.core.errors import ApplicationError
 from app.models.document import Document
 from app.models.enums import DocumentStatus, ProcessingJobStatus, ProcessingJobType
@@ -18,6 +19,7 @@ from app.repositories.documents import DocumentRepository
 from app.repositories.events import ProcessingEventRepository
 from app.repositories.jobs import ProcessingJobRepository
 from app.repositories.storage_objects import StorageObjectRepository
+from app.services.file_validation import validate_file_signature
 from app.services.mime_types import resolve_mime_type
 from app.services.storage_service import ObjectStorageService
 
@@ -198,3 +200,11 @@ class DocumentService:
                 status_code=413,
                 code="file_too_large",
             )
+        if command.doc_type is None:
+            raise ApplicationError(
+                "doc_type is required",
+                status_code=400,
+                code="missing_doc_type",
+            )
+        validate_doc_type(command.doc_type)
+        validate_file_signature(mime_type=command.mime_type, content=command.content)

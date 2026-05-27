@@ -5,11 +5,9 @@ import pytest
 
 from app.core.config import Settings
 from app.core.errors import ApplicationError
-from app.models.enums import AccessLevel
 from app.repositories.ai_query import AiQueryRepository
 from app.services.ai_db_tools import AiDbToolExecutor
 from app.services.ai_query_service import AiQueryService
-from app.services.auth_service import AuthService, AuthenticatedUser
 from app.services.llm_client import LlmClient, _from_yandex_response, _to_yandex_messages
 
 
@@ -289,22 +287,3 @@ def test_llm_client_yandex_is_configured():
         )
     )
     assert client.is_configured is True
-
-
-def test_auth_requires_full_access_for_ai():
-    tenant_id = uuid4()
-    user = AuthenticatedUser(
-        user_id=uuid4(),
-        tenant_id=tenant_id,
-        name="Reader",
-        access_level=AccessLevel.READ,
-    )
-
-    with pytest.raises(ApplicationError) as exc_info:
-        AuthService(FakeSession()).require_full_access(user, tenant_id)
-
-    assert exc_info.value.code == "insufficient_permissions"
-
-
-def test_access_level_full_access_label():
-    assert AccessLevel.FULL_ACCESS.label == "Полный доступ"

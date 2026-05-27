@@ -1,6 +1,8 @@
 .DS_Store
 .env
 .env.local
+.api-cookies.txt
+.api-csrf-token
 .local/
 .venv312/
 .pytest_cache/

@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from app.models.enums import ProcessingJobStatus
 from app.models.processing_job import ProcessingJob
 
 
@@ -50,3 +51,27 @@ class ProcessingJobRepository:
         job.updated_at = now
         job.error_code = code
         job.error_message = message
+
+    def cancel_queued_for_document(
+        self,
+        *,
+        document_id: UUID,
+        document_created_at: datetime,
+    ) -> int:
+        now = datetime.now(UTC)
+        result = self.session.execute(
+            update(ProcessingJob)
+            .where(
+                ProcessingJob.document_id == document_id,
+                ProcessingJob.document_created_at == document_created_at,
+                ProcessingJob.status == ProcessingJobStatus.QUEUED.value,
+            )
+            .values(
+                status=ProcessingJobStatus.FAILED.value,
+                finished_at=now,
+                updated_at=now,
+                error_code="superseded",
+                error_message="Superseded by a newer processing job",
+            )
+        )
+        return result.rowcount or 0

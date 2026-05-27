@@ -1,0 +1,64 @@
+{% extends "base_admin.html" %}
+{% block title %}Пользователи{% endblock %}
+{% block page_title %}Пользователи{% endblock %}
+{% block topbar_actions %}
+<a href="/admin/users/new" class="btn btn-primary btn-sm">+ Добавить</a>
+{% endblock %}
+{% block content %}
+{% if success == "created" %}
+<div class="alert alert-success">Пользователь создан</div>
+{% elif success == "updated" %}
+<div class="alert alert-success">Изменения сохранены</div>
+{% elif success == "toggled" %}
+<div class="alert alert-success">Статус пользователя изменён</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-error">{{ user_error_label(error) }}</div>
+{% endif %}
+
+<table class="admin-table admin-table-full">
+  <thead>
+    <tr>
+      <th>Имя</th>
+      <th>Email</th>
+      <th>Роль</th>
+      <th>Активен</th>
+      <th>Создан</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+    <tr{% if not u.is_active %} class="row-inactive"{% endif %}>
+      <td>
+        {{ u.full_name }}
+        {% if u.id == user.id %}<span class="badge badge-self">Вы</span>{% endif %}
+      </td>
+      <td>{{ u.email }}</td>
+      <td>
+        {% if u.role == "admin" %}
+        <span class="badge badge-admin">Администратор</span>
+        {% else %}
+        <span class="badge badge-employee">Сотрудник</span>
+        {% endif %}
+      </td>
+      <td>{{ "✓" if u.is_active else "✗" }}</td>
+      <td class="muted">{{ format_date(u.created_at) }}</td>
+      <td class="actions-cell">
+        <a href="/admin/users/{{ u.id }}/edit" class="btn btn-ghost btn-sm">Изменить</a>
+        {% if u.id != user.id %}
+        <form method="post" action="/admin/users/{{ u.id }}/toggle-active" class="inline-form">
+          {% include "csrf_field.html" %}
+          <button type="submit" class="btn btn-ghost btn-sm">
+            {% if u.is_active %}Деактивировать{% else %}Активировать{% endif %}
+          </button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="muted">Нет пользователей</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

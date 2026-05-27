@@ -1,7 +1,10 @@
 from datetime import date
 from uuid import uuid4
 
+import pytest
+
 from app.core.config import Settings
+from app.core.errors import ApplicationError
 from app.services.document_service import DocumentService, UploadDocumentCommand, build_object_key
 
 
@@ -58,9 +61,9 @@ def test_upload_flow_creates_document_job_and_storage_metadata():
         UploadDocumentCommand(
             tenant_id=uuid4(),
             filename="invoice.pdf",
-            content=b"hello invoice",
+            content=b"%PDF-1.4 hello invoice",
             mime_type="application/pdf",
-            doc_type="invoice",
+            doc_type="prikaz",
             document_date=date(2026, 5, 14),
         ),
         enqueue_ocr_job=lambda job_id: FakeAsyncResult(),
@@ -75,6 +78,26 @@ def test_upload_flow_creates_document_job_and_storage_metadata():
         "ProcessingJob",
         "ProcessingEvent",
     }
+
+
+def test_upload_flow_rejects_missing_doc_type():
+    settings = Settings()
+    session = FakeSession()
+    storage = FakeStorage()
+    service = DocumentService(session=session, settings=settings, storage=storage)
+
+    with pytest.raises(ApplicationError) as exc:
+        service.upload_document(
+            UploadDocumentCommand(
+                tenant_id=uuid4(),
+                filename="order.pdf",
+                content=b"%PDF-1.4 hello",
+                mime_type="application/pdf",
+            ),
+            enqueue_ocr_job=lambda job_id: FakeAsyncResult(),
+        )
+
+    assert exc.value.code == "missing_doc_type"
 
 
 def test_build_object_key_uses_tenant_date_document_and_hash():

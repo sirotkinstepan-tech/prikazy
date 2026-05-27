@@ -31,7 +31,7 @@ class FakeSession:
                 {
                     "document_id": uuid4(),
                     "status": "processed",
-                    "doc_type": "invoice",
+                    "doc_type": "prikaz",
                     "document_date": None,
                     "counterparty_name": "ACME",
                     "rank": 0.5,
@@ -48,7 +48,7 @@ def test_search_query_uses_postgresql_full_text_and_filters():
     items, total = repository.search(
         tenant_id=uuid4(),
         query="acme invoice",
-        doc_type="invoice",
+        doc_types=["prikaz", "lna"],
         status="processed",
         counterparty_name="ACME",
     )
@@ -58,6 +58,9 @@ def test_search_query_uses_postgresql_full_text_and_filters():
     assert total == 1
     assert len(items) == 1
     assert "websearch_to_tsquery('simple', :query)" in count_sql
+    assert "lor.full_text ILIKE :like_pattern" in count_sql
+    assert "d.title ILIKE :like_pattern" in count_sql
     assert "ts_rank(lor.search_vector, q.tsq)" in items_sql
-    assert "d.doc_type = :doc_type" in items_sql
+    assert "d.doc_type = ANY(:doc_types)" in items_sql
+    assert params["doc_types"] == ["prikaz", "lna"]
     assert params["counterparty_name"] == "%ACME%"
