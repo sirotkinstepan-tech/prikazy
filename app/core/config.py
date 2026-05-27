@@ -35,6 +35,26 @@ class Settings(BaseSettings):
     )
     default_ocr_provider: str = "stub"
 
+    llm_provider: str = Field(default="yandex", validation_alias="LLM_PROVIDER")
+    llm_api_base_url: str = Field(
+        default="https://api.openai.com/v1",
+        validation_alias="LLM_API_BASE_URL",
+    )
+    llm_api_key: str = Field(default="", validation_alias="LLM_API_KEY")
+    llm_model: str = Field(default="gpt-4o-mini", validation_alias="LLM_MODEL")
+    llm_timeout_seconds: float = Field(default=60.0, validation_alias="LLM_TIMEOUT_SECONDS")
+    llm_max_tool_rounds: int = Field(default=5, validation_alias="LLM_MAX_TOOL_ROUNDS")
+    llm_max_output_tokens: int = Field(default=2000, validation_alias="LLM_MAX_OUTPUT_TOKENS")
+
+    yandex_api_key: str = Field(default="", validation_alias="YANDEX_API_KEY")
+    yandex_folder_id: str = Field(default="", validation_alias="YANDEX_FOLDER_ID")
+    yandex_model: str = Field(
+        default="yandexgpt-lite/latest",
+        validation_alias="YANDEX_MODEL",
+    )
+
+    auth_required_for_ai: bool = Field(default=True, validation_alias="AUTH_REQUIRED_FOR_AI")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

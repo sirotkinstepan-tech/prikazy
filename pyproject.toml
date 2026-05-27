@@ -8,6 +8,7 @@ dependencies = [
   "boto3",
   "celery",
   "fastapi",
+  "httpx",
   "openpyxl",
   "psycopg[binary]",
   "pydantic-settings",

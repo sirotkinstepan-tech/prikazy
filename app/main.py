@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routes import documents, health, search
+from app.api.routes import ai_query, documents, health, search
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
@@ -19,6 +19,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(documents.router)
     app.include_router(search.router)
+    app.include_router(ai_query.router)
     return app
 
 
