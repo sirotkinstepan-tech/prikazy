@@ -3,6 +3,7 @@
 {% block page_title %}{{ document.title or document.source_filename or "Документ" }}{% endblock %}
 {% block topbar_actions %}
 <form method="post" action="/admin/documents/{{ document.id }}/reprocess" class="inline-form">
+  {% include "csrf_field.html" %}
   <button type="submit" class="btn btn-secondary btn-sm">↻ Переобработать</button>
 </form>
 {% endblock %}
@@ -59,6 +60,7 @@
           {% if rel.direction == 'incoming' %}<span class="badge badge-info">входящая связь</span>{% endif %}
         </div>
         <form method="post" action="/admin/documents/{{ document.id }}/links/{{ rel.relation_id }}/delete" class="inline-form">
+          {% include "csrf_field.html" %}
           <button type="submit" class="btn btn-ghost btn-sm">Удалить</button>
         </form>
       </li>
@@ -69,6 +71,7 @@
     {% endif %}
 
     <form method="post" action="/admin/documents/{{ document.id }}/links" class="admin-form related-link-form">
+      {% include "csrf_field.html" %}
       <p class="muted field-hint">
         Откройте второй документ в админке (<a href="/admin/documents">база</a> или <a href="/admin/search">поиск</a>),
         скопируйте его ID из блока «Метаданные» или из адресной строки:

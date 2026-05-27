@@ -30,6 +30,7 @@
         <small>{{ user.email }}</small>
       </div>
       <form method="post" action="/logout">
+        {% include "csrf_field.html" %}
         <button type="submit" class="btn btn-ghost btn-sm btn-block">Выйти</button>
       </form>
     </div>

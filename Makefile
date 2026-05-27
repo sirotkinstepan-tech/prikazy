@@ -3,8 +3,12 @@ TENANT_ID ?= 00000000-0000-0000-0000-000000000001
 SAMPLE ?= samples/sample.pdf
 DOC_TYPE ?= prikaz
 COUNTERPARTY ?= ACME
+COOKIE_JAR ?= .api-cookies.txt
+CSRF_FILE ?= .api-csrf-token
+API_EMAIL ?= admin@example.com
+API_PASSWORD ?= admin123
 
-.PHONY: env up down migrate logs health upload search test lint format-check local-up local-down local-bootstrap
+.PHONY: env up down migrate logs health upload search test lint format-check local-up local-down local-bootstrap api-login api-curl-upload api-curl-search seed
 
 env:
 	@test -f .env || cp .env.example .env
@@ -36,19 +40,29 @@ logs:
 health:
 	curl $(API_BASE)/health
 
-upload:
+api-login:
+	chmod +x scripts/api-session.sh
+	API_BASE=$(API_BASE) EMAIL=$(API_EMAIL) PASSWORD=$(API_PASSWORD) \
+		COOKIE_JAR=$(COOKIE_JAR) CSRF_FILE=$(CSRF_FILE) ./scripts/api-session.sh
+
+api-curl-upload: api-login
 	curl -X POST $(API_BASE)/documents/upload \
-		-F "tenant_id=$(TENANT_ID)" \
+		-b $(COOKIE_JAR) \
+		-H "X-CSRF-Token: $$(cat $(CSRF_FILE))" \
 		-F "doc_type=$(DOC_TYPE)" \
 		-F "counterparty_name=$(COUNTERPARTY)" \
 		-F "file=@./$(SAMPLE)"
 
+upload: api-curl-upload
+
 SEARCH_Q ?= премирование
 
-search:
+api-curl-search: api-login
 	curl --get "$(API_BASE)/search" \
-		--data-urlencode "tenant_id=$(TENANT_ID)" \
+		-b $(COOKIE_JAR) \
 		--data-urlencode "q=$(SEARCH_Q)"
+
+search: api-curl-search
 
 test:
 	docker compose exec -T app pytest

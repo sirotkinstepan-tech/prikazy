@@ -67,6 +67,7 @@
           {% if rel.direction == 'incoming' %}<span class="badge badge-section">связан с этим</span>{% endif %}
         </div>
         <form method="post" action="/portal/documents/{{ document.id }}/links/{{ rel.relation_id }}/delete" class="inline-form">
+          {% include "csrf_field.html" %}
           <button type="submit" class="btn btn-ghost btn-sm">Удалить</button>
         </form>
       </li>
@@ -77,6 +78,7 @@
     {% endif %}
 
     <form method="post" action="/portal/documents/{{ document.id }}/links" class="related-link-form">
+      {% include "csrf_field.html" %}
       <label>
         <span>ID связанного документа</span>
         <input type="text" name="target_document_id" required placeholder="Скопируйте ID из другой карточки">

@@ -25,6 +25,7 @@
       <div class="portal-user">
         <span>{{ user.full_name }}</span>
         <form method="post" action="/logout" class="inline-form">
+          {% include "csrf_field.html" %}
           <button type="submit" class="btn btn-ghost btn-sm">Выйти</button>
         </form>
       </div>

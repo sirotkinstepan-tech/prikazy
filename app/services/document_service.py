@@ -19,6 +19,7 @@ from app.repositories.documents import DocumentRepository
 from app.repositories.events import ProcessingEventRepository
 from app.repositories.jobs import ProcessingJobRepository
 from app.repositories.storage_objects import StorageObjectRepository
+from app.services.file_validation import validate_file_signature
 from app.services.mime_types import resolve_mime_type
 from app.services.storage_service import ObjectStorageService
 
@@ -206,3 +207,4 @@ class DocumentService:
                 code="missing_doc_type",
             )
         validate_doc_type(command.doc_type)
+        validate_file_signature(mime_type=command.mime_type, content=command.content)

@@ -9,6 +9,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import AuthRedirect
 from app.db.session import get_db_session
 from app.models.enums import UserRole
+from app.security.csrf import verify_csrf_header
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DbSessionDep = Annotated[Session, Depends(get_db_session)]
@@ -62,3 +63,4 @@ OptionalUserDep = Annotated[AuthenticatedUser | None, Depends(get_optional_user)
 AdminUserDep = Annotated[AuthenticatedUser, Depends(require_admin)]
 WebUserDep = Annotated[AuthenticatedUser, Depends(require_web_user)]
 WebAdminDep = Annotated[AuthenticatedUser, Depends(require_web_admin)]
+CsrfHeaderDep = Annotated[None, Depends(verify_csrf_header)]

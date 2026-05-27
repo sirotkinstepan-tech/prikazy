@@ -32,11 +32,8 @@ def test_attach_document_links_fills_viewer_preview_and_download():
 
     attach_document_links(doc, settings)
 
-    assert doc.viewer_url == (
-        f"http://localhost:8001/viewer?tenant_id={tenant_id}&document_id={document_id}"
+    assert doc.viewer_url == f"http://localhost:8001/viewer?document_id={document_id}"
+    assert doc.preview_url == (
+        f"http://localhost:8001/documents/{document_id}/file?disposition=inline"
     )
-    assert doc.preview_url.startswith("http://localhost:8001/documents/")
-    assert "disposition=inline" in doc.preview_url
-    assert doc.download_url == (
-        f"http://localhost:8001/documents/{document_id}/download?tenant_id={tenant_id}"
-    )
+    assert doc.download_url == f"http://localhost:8001/documents/{document_id}/download"

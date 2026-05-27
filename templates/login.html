@@ -18,6 +18,7 @@
     <div class="alert alert-error">Неверный email или пароль</div>
     {% endif %}
     <form method="post" action="/login" class="login-form">
+      {% include "csrf_field.html" %}
       <label>
         <span>Email</span>
         <input type="email" name="email" required autofocus placeholder="you@company.ru">

@@ -211,10 +211,6 @@
     <h1 id="doc-title">Просмотр оригинала документа</h1>
     <div class="controls">
       <div>
-        <label for="tenant-id">tenant_id</label><br />
-        <input id="tenant-id" type="text" placeholder="00000000-0000-0000-0000-000000000001" />
-      </div>
-      <div>
         <label for="document-id">document_id</label><br />
         <input id="document-id" type="text" placeholder="uuid документа" />
       </div>
@@ -251,9 +247,8 @@
         Скачать прикреплённый файл
       </button>
       <p class="empty-hint" id="empty-hint">
-        Укажите <code>tenant_id</code> и <code>document_id</code> (после загрузки через API) и нажмите «Открыть».
-        Пример URL:
-        <code>http://localhost:8001/viewer?tenant_id=00000000-0000-0000-0000-000000000001&amp;document_id=...</code>
+        Войдите в систему, укажите <code>document_id</code> и нажмите «Открыть».
+        Пример URL: <code>/viewer?document_id=...</code>
       </p>
       <div id="pdf-canvas-wrap" hidden>
         <div class="pdf-toolbar">
@@ -274,8 +269,8 @@
       "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
 
     const params = new URLSearchParams(location.search);
-    const tenantInput = document.getElementById("tenant-id");
     const documentInput = document.getElementById("document-id");
+    let csrfToken = "";
     const statusEl = document.getElementById("status");
     const emptyHint = document.getElementById("empty-hint");
     const pdfWrap = document.getElementById("pdf-canvas-wrap");
@@ -291,9 +286,24 @@
     const btnZoomOut = document.getElementById("btn-zoom-out");
     const pdfPageLabel = document.getElementById("pdf-page-label");
 
-    const DEFAULT_TENANT = "00000000-0000-0000-0000-000000000001";
-    tenantInput.value = params.get("tenant_id") || localStorage.getItem("prikazy_tenant_id") || DEFAULT_TENANT;
     documentInput.value = params.get("document_id") || "";
+
+    async function loadCsrfToken() {
+      const response = await fetch("/auth/csrf", { credentials: "include" });
+      if (!response.ok) {
+        throw new Error("Требуется вход в систему");
+      }
+      const payload = await response.json();
+      csrfToken = payload.csrf_token;
+    }
+
+    function apiFetch(url, options = {}) {
+      const headers = new Headers(options.headers || {});
+      if (csrfToken) {
+        headers.set("X-CSRF-Token", csrfToken);
+      }
+      return fetch(url, { ...options, credentials: "include", headers });
+    }
 
     let pdfDoc = null;
     let pdfPage = 1;
@@ -311,7 +321,7 @@
     }
 
     function canDownload() {
-      return Boolean(tenantInput.value.trim() && documentInput.value.trim());
+      return Boolean(documentInput.value.trim());
     }
 
     function updateDownloadButtonsState() {
@@ -320,7 +330,7 @@
         button.disabled = !enabled;
         button.title = enabled
           ? "Скачать оригинал прикреплённого файла"
-          : "Укажите tenant_id и document_id";
+          : "Укажите document_id";
       });
       btnPreviewDownload.classList.toggle("visible", enabled);
     }
@@ -333,9 +343,8 @@
     }
 
     function downloadUrl() {
-      const tenantId = tenantInput.value.trim();
       const documentId = documentInput.value.trim();
-      return `/documents/${documentId}/download?tenant_id=${encodeURIComponent(tenantId)}`;
+      return `/documents/${documentId}/download`;
     }
 
     function setStatus(text, isError = false) {
@@ -344,9 +353,8 @@
     }
 
     function fileUrl(disposition) {
-      const tenantId = tenantInput.value.trim();
       const documentId = documentInput.value.trim();
-      return `/documents/${documentId}/file?tenant_id=${encodeURIComponent(tenantId)}&disposition=${disposition}`;
+      return `/documents/${documentId}/file?disposition=${disposition}`;
     }
 
     function hidePreviews() {
@@ -376,12 +384,12 @@
 
     async function downloadOriginal() {
       if (!canDownload()) {
-        setStatus("Укажите tenant_id и document_id", true);
+        setStatus("Укажите document_id", true);
         return;
       }
       setDownloadButtonsBusy(true);
       try {
-        const response = await fetch(downloadUrl());
+        const response = await apiFetch(downloadUrl());
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
           throw new Error(body?.error?.message || response.statusText);
@@ -444,7 +452,7 @@
       hidePreviews();
       pdfWrap.hidden = false;
       setStatus("Загрузка PDF…");
-      const response = await fetch(fileUrl("inline"));
+      const response = await apiFetch(fileUrl("inline"));
       if (!response.ok) throw new Error(await response.text() || response.statusText);
       const buffer = await response.arrayBuffer();
       pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise;
@@ -468,7 +476,7 @@
       docxContainer.hidden = false;
       docxContainer.innerHTML = "";
       setStatus("Загрузка Word…");
-      const response = await fetch(fileUrl("inline"));
+      const response = await apiFetch(fileUrl("inline"));
       if (!response.ok) throw new Error(await response.text() || response.statusText);
       const blob = await response.blob();
       await docx.renderAsync(blob, docxContainer, null, {
@@ -491,15 +499,12 @@
     }
 
     async function openDocument() {
-      const tenantId = tenantInput.value.trim();
       const documentId = documentInput.value.trim();
-      if (!tenantId || !documentId) {
-        setStatus("Укажите tenant_id и document_id", true);
+      if (!documentId) {
+        setStatus("Укажите document_id", true);
         return;
       }
-      localStorage.setItem("prikazy_tenant_id", tenantId);
       const url = new URL(location.href);
-      url.searchParams.set("tenant_id", tenantId);
       url.searchParams.set("document_id", documentId);
       history.replaceState(null, "", url);
 
@@ -509,9 +514,7 @@
       setStatus("Загрузка метаданных…");
 
       try {
-        const metaRes = await fetch(
-          `/documents/${documentId}?tenant_id=${encodeURIComponent(tenantId)}`
-        );
+        const metaRes = await apiFetch(`/documents/${documentId}`);
         if (!metaRes.ok) {
           const body = await metaRes.json().catch(() => ({}));
           throw new Error(body?.error?.message || metaRes.statusText);
@@ -545,7 +548,6 @@
     allDownloadButtons().forEach((button) => {
       button.addEventListener("click", downloadOriginal);
     });
-    tenantInput.addEventListener("input", updateDownloadButtonsState);
     documentInput.addEventListener("input", updateDownloadButtonsState);
     document.getElementById("btn-open").addEventListener("click", openDocument);
     updateDownloadButtonsState();
@@ -572,9 +574,13 @@
       imagePreview.style.transform = `scale(${imageScale})`;
     });
 
-    if (documentInput.value.trim()) {
-      openDocument();
-    }
+    loadCsrfToken()
+      .then(() => {
+        if (documentInput.value.trim()) {
+          return openDocument();
+        }
+      })
+      .catch((err) => setStatus(err.message || String(err), true));
   </script>
 </body>
 </html>

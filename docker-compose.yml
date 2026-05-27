@@ -38,7 +38,7 @@ services:
       POSTGRES_USER: prikazy
       POSTGRES_PASSWORD: prikazy
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -50,7 +50,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
 
   minio:
     image: minio/minio
@@ -59,8 +59,8 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9002:9000"
-      - "9003:9001"
+      - "127.0.0.1:9002:9000"
+      - "127.0.0.1:9003:9001"
     volumes:
       - minio_data:/data
 

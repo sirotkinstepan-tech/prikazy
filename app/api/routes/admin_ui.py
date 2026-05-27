@@ -22,6 +22,7 @@ from app.repositories.ocr_results import OcrResultRepository
 from app.repositories.search import SearchRepository
 from app.models.enums import SectionAccessLevel, UserRole
 from app.repositories.users import UserRepository
+from app.security.csrf import verify_csrf_form
 from app.services.document_link_service import CreateDocumentLinkCommand, DocumentLinkService
 from app.services.user_service import CreateUserCommand, UpdateUserCommand, UserService
 from app.services.document_service import DocumentService, UploadDocumentCommand
@@ -29,6 +30,7 @@ from app.services.job_service import JobService
 from app.services.storage_service import ObjectStorageService
 from app.core.section_permissions import section_access_label
 from app.web.helpers import format_date, format_size, role_label, status_class, status_label, user_error_label
+from app.web.template_context import web_template_context
 from app.workers.tasks import process_ocr_job
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -66,6 +68,7 @@ def admin_dashboard(request: Request, user: WebAdminDep, session: DbSessionDep):
         request,
         "admin/index.html",
         {
+            **web_template_context(request),
             "user": user,
             "recent_documents": items,
             "total_documents": total,
@@ -109,6 +112,7 @@ def admin_documents(
         request,
         "admin/documents.html",
         {
+            **web_template_context(request),
             "user": user,
             "documents": items,
             "total": total,
@@ -155,6 +159,7 @@ def admin_document_detail(
         request,
         "admin/document_detail.html",
         {
+            **web_template_context(request),
             "user": user,
             "document": document,
             "ocr_result": ocr_result,
@@ -169,12 +174,15 @@ def admin_document_detail(
 
 @router.post("/documents/{document_id}/links")
 def admin_document_add_link(
+    request: Request,
     user: WebAdminDep,
     session: DbSessionDep,
     document_id: UUID,
     target_document_id: Annotated[str, Form()],
+    csrf_token: Annotated[str, Form()],
     link_label: Annotated[str | None, Form()] = None,
 ):
+    verify_csrf_form(request, csrf_token)
     try:
         target_id = UUID(target_document_id.strip())
     except ValueError:
@@ -205,11 +213,14 @@ def admin_document_add_link(
 
 @router.post("/documents/{document_id}/links/{relation_id}/delete")
 def admin_document_remove_link(
+    request: Request,
     user: WebAdminDep,
     session: DbSessionDep,
     document_id: UUID,
     relation_id: UUID,
+    csrf_token: Annotated[str, Form()],
 ):
+    verify_csrf_form(request, csrf_token)
     try:
         DocumentLinkService(session).remove_link(
             relation_id=relation_id,
@@ -228,10 +239,13 @@ def admin_document_remove_link(
 
 @router.post("/documents/{document_id}/reprocess")
 def admin_reprocess(
+    request: Request,
     user: WebAdminDep,
     session: DbSessionDep,
     document_id: UUID,
+    csrf_token: Annotated[str, Form()],
 ):
+    verify_csrf_form(request, csrf_token)
     service = JobService(session)
     service.create_reprocess_job(
         document_id=document_id,
@@ -250,21 +264,24 @@ def admin_upload_page(request: Request, user: WebAdminDep):
     return templates.TemplateResponse(
         request,
         "admin/upload.html",
-        {"user": user, "success": request.query_params.get("success")},
+        web_template_context(request, user=user, success=request.query_params.get("success")),
     )
 
 
 @router.post("/upload")
 async def admin_upload(
+    request: Request,
     user: WebAdminDep,
     session: DbSessionDep,
     settings: SettingsDep,
     file: Annotated[UploadFile, File()],
+    csrf_token: Annotated[str, Form()],
     doc_type: Annotated[str | None, Form()] = None,
     title: Annotated[str | None, Form()] = None,
     document_date: Annotated[date | None, Form()] = None,
     counterparty_name: Annotated[str | None, Form()] = None,
 ):
+    verify_csrf_form(request, csrf_token)
     content = await file.read()
     service = DocumentService(
         session=session,
@@ -320,6 +337,7 @@ def admin_search(
         request,
         "admin/search.html",
         {
+            **web_template_context(request),
             "user": user,
             "q": q,
             "results": results,
@@ -337,6 +355,7 @@ def admin_users(request: Request, user: WebAdminDep, session: DbSessionDep):
         request,
         "admin/users.html",
         {
+            **web_template_context(request),
             "user": user,
             "users": users,
             "success": request.query_params.get("success"),
@@ -347,6 +366,7 @@ def admin_users(request: Request, user: WebAdminDep, session: DbSessionDep):
 
 def _user_form_context(
     *,
+    request: Request,
     user,
     form_user,
     form_action: str,
@@ -369,6 +389,7 @@ def _user_form_context(
             for section in document_sections_for_ui()
         }
     return {
+        **web_template_context(request),
         "user": user,
         "form_user": form_user,
         "form_action": form_action,
@@ -387,6 +408,7 @@ def admin_user_new(request: Request, user: WebAdminDep, session: DbSessionDep):
         request,
         "admin/user_form.html",
         _user_form_context(
+            request=request,
             user=user,
             form_user=None,
             form_action="/admin/users",
@@ -413,7 +435,9 @@ async def admin_user_create(
     password: Annotated[str, Form()],
     full_name: Annotated[str, Form()],
     role: Annotated[str, Form()],
+    csrf_token: Annotated[str, Form()],
 ):
+    verify_csrf_form(request, csrf_token)
     parsed_role = _parse_role(role)
     if parsed_role is None:
         return RedirectResponse(
@@ -469,6 +493,7 @@ def admin_user_edit(
         request,
         "admin/user_form.html",
         _user_form_context(
+            request=request,
             user=user,
             form_user=form_user,
             form_action=f"/admin/users/{user_id}",
@@ -488,9 +513,11 @@ async def admin_user_update(
     email: Annotated[str, Form()],
     full_name: Annotated[str, Form()],
     role: Annotated[str, Form()],
+    csrf_token: Annotated[str, Form()],
     is_active: Annotated[str | None, Form()] = None,
     password: Annotated[str | None, Form()] = None,
 ):
+    verify_csrf_form(request, csrf_token)
     parsed_role = _parse_role(role)
     if parsed_role is None:
         return RedirectResponse(
@@ -537,10 +564,13 @@ async def admin_user_update(
 
 @router.post("/users/{user_id}/toggle-active")
 def admin_user_toggle_active(
+    request: Request,
     user: WebAdminDep,
     session: DbSessionDep,
     user_id: UUID,
+    csrf_token: Annotated[str, Form()],
 ):
+    verify_csrf_form(request, csrf_token)
     try:
         UserService(session).toggle_active(
             user_id=user_id,

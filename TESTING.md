@@ -68,11 +68,13 @@ samples/sample.pdf
 
 ## 4. Upload A Test Document
 
-Use the helper command (default section: `prikaz`):
+API endpoints require a logged-in session. Seed users first (`make seed`), then:
 
 ```bash
 make upload SAMPLE=samples/sample.pdf
 ```
+
+This runs `make api-login` (saves `.api-cookies.txt` and `.api-csrf-token`) and uploads with CSRF protection.
 
 You can override metadata:
 
@@ -101,7 +103,8 @@ make search SEARCH_Q=премирование
 You can also list documents directly:
 
 ```bash
-curl "http://localhost:8001/documents?tenant_id=00000000-0000-0000-0000-000000000001"
+make api-login
+curl -b .api-cookies.txt "http://localhost:8001/documents?limit=5"
 ```
 
 ## 6. Run Automated Tests

@@ -21,9 +21,11 @@ from app.repositories.document_relations import DocumentRelationRepository
 from app.repositories.documents import DocumentRepository
 from app.repositories.ocr_results import OcrResultRepository
 from app.repositories.search import SearchRepository
+from app.security.csrf import verify_csrf_form
 from app.services.document_link_service import CreateDocumentLinkCommand, DocumentLinkService
 from app.services.document_service import DocumentService, UploadDocumentCommand
 from app.web.portal_context import merge_doc_types_filter, portal_template_context
+from app.web.template_context import web_template_context
 from app.web.section_access import (
     can_manage_document_links,
     require_section_download,
@@ -56,8 +58,8 @@ def _resolve_section_filter(section: str | None) -> list[str] | None:
     return resolve_doc_type_filters(doc_type=section, doc_types=None)
 
 
-def _portal_ctx(user: WebUserDep) -> dict:
-    return portal_template_context(user)
+def _portal_ctx(request: Request, user: WebUserDep) -> dict:
+    return {**portal_template_context(user), **web_template_context(request)}
 
 
 @router.get("/")
@@ -86,7 +88,7 @@ def portal_home(request: Request, user: WebUserDep, session: DbSessionDep):
             "total_documents": total,
             "has_processed": len(processed) > 0,
             "current_section": "all",
-            **_portal_ctx(user),
+            **_portal_ctx(request, user),
         },
     )
 
@@ -97,7 +99,7 @@ def upload_page(
     user: WebUserDep,
     section: str | None = Query(default=None),
 ):
-    ctx = _portal_ctx(user)
+    ctx = _portal_ctx(request, user)
     if not ctx["can_upload_any"]:
         return RedirectResponse(url="/portal/?error=section_upload_denied", status_code=status.HTTP_303_SEE_OTHER)
     upload_sections = [
@@ -117,7 +119,7 @@ def upload_page(
             "success": request.query_params.get("success"),
             "current_section": selected_section,
             "upload_sections": upload_sections,
-            **_portal_ctx(user),
+            **_portal_ctx(request, user),
         },
     )
 
@@ -130,10 +132,12 @@ async def upload_document(
     settings: SettingsDep,
     file: Annotated[UploadFile, File()],
     doc_type: Annotated[str, Form()],
+    csrf_token: Annotated[str, Form()],
     title: Annotated[str | None, Form()] = None,
     document_date: Annotated[date | None, Form()] = None,
     counterparty_name: Annotated[str | None, Form()] = None,
 ):
+    verify_csrf_form(request, csrf_token)
     validated_doc_type = validate_doc_type(doc_type)
     require_section_upload(user, validated_doc_type)
     content = await file.read()
@@ -200,7 +204,7 @@ def documents_list(
             "q": q or "",
             "status_filter": status_filter or "",
             "current_section": section or "all",
-            **_portal_ctx(user),
+            **_portal_ctx(request, user),
         },
     )
 
@@ -248,19 +252,22 @@ def document_detail(
             "can_manage_links": can_manage_document_links(user, document.doc_type),
             "link_error": request.query_params.get("link_error"),
             "link_success": request.query_params.get("link_success"),
-            **_portal_ctx(user),
+            **_portal_ctx(request, user),
         },
     )
 
 
 @router.post("/documents/{document_id}/links")
 def portal_document_add_link(
+    request: Request,
     user: WebUserDep,
     session: DbSessionDep,
     document_id: UUID,
     target_document_id: Annotated[str, Form()],
+    csrf_token: Annotated[str, Form()],
     link_label: Annotated[str | None, Form()] = None,
 ):
+    verify_csrf_form(request, csrf_token)
     repository = DocumentRepository(session)
     source = repository.get_for_tenant(document_id, user.tenant_id)
     if source is None:
@@ -303,11 +310,14 @@ def portal_document_add_link(
 
 @router.post("/documents/{document_id}/links/{relation_id}/delete")
 def portal_document_remove_link(
+    request: Request,
     user: WebUserDep,
     session: DbSessionDep,
     document_id: UUID,
     relation_id: UUID,
+    csrf_token: Annotated[str, Form()],
 ):
+    verify_csrf_form(request, csrf_token)
     repository = DocumentRepository(session)
     source = repository.get_for_tenant(document_id, user.tenant_id)
     if source is None:
@@ -435,6 +445,6 @@ def search_page(
             "results": results,
             "total": total,
             "current_section": section or "all",
-            **_portal_ctx(user),
+            **_portal_ctx(request, user),
         },
     )

@@ -47,6 +47,12 @@ class Settings(BaseSettings):
         default="change-me-in-production-use-a-long-random-string",
         validation_alias="SESSION_SECRET",
     )
+    session_https_only: bool = Field(default=False, validation_alias="SESSION_HTTPS_ONLY")
+    csrf_enabled: bool = Field(default=True, validation_alias="CSRF_ENABLED")
+    rate_limit_enabled: bool = Field(default=True, validation_alias="RATE_LIMIT_ENABLED")
+    rate_limit_login_per_minute: int = Field(default=10, validation_alias="RATE_LIMIT_LOGIN_PER_MINUTE")
+    rate_limit_upload_per_minute: int = Field(default=30, validation_alias="RATE_LIMIT_UPLOAD_PER_MINUTE")
+    docs_enabled: bool = Field(default=True, validation_alias="DOCS_ENABLED")
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -57,6 +63,10 @@ class Settings(BaseSettings):
     @property
     def allowed_mime_type_set(self) -> set[str]:
         return {item.strip() for item in self.allowed_mime_types.split(",") if item.strip()}
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env not in {"local", "test", "development"}
 
 
 @lru_cache

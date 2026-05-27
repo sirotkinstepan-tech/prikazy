@@ -1,10 +1,4 @@
-from fastapi.testclient import TestClient
-
-from app.main import create_app
-
-
-def test_list_document_sections():
-    client = TestClient(create_app())
+def test_list_document_sections(client):
     response = client.get("/sections")
 
     assert response.status_code == 200

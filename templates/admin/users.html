@@ -48,6 +48,7 @@
         <a href="/admin/users/{{ u.id }}/edit" class="btn btn-ghost btn-sm">Изменить</a>
         {% if u.id != user.id %}
         <form method="post" action="/admin/users/{{ u.id }}/toggle-active" class="inline-form">
+          {% include "csrf_field.html" %}
           <button type="submit" class="btn btn-ghost btn-sm">
             {% if u.is_active %}Деактивировать{% else %}Активировать{% endif %}
           </button>

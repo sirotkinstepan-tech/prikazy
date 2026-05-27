@@ -36,7 +36,7 @@ class UpdateUserCommand:
 
 
 class UserService:
-    MIN_PASSWORD_LENGTH = 6
+    MIN_PASSWORD_LENGTH = 8
 
     def __init__(self, session: Session):
         self.session = session
@@ -191,6 +191,14 @@ class UserService:
         if len(password) < self.MIN_PASSWORD_LENGTH:
             raise ApplicationError(
                 f"Пароль должен быть не короче {self.MIN_PASSWORD_LENGTH} символов",
+                status_code=400,
+                code="invalid_password",
+            )
+        has_letter = any(char.isalpha() for char in password)
+        has_digit = any(char.isdigit() for char in password)
+        if not (has_letter and has_digit):
+            raise ApplicationError(
+                "Пароль должен содержать буквы и цифры",
                 status_code=400,
                 code="invalid_password",
             )

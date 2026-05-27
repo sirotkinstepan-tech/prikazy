@@ -3,8 +3,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query
 
-from app.api.dependencies import DbSessionDep
-from app.core.document_sections import resolve_doc_type_filters
+from app.api.access import ensure_tenant_id, require_api_section_view, resolve_api_doc_types
+from app.api.dependencies import CurrentUserDep, DbSessionDep
 from app.core.errors import ApplicationError
 from app.repositories.search import SearchRepository
 from app.schemas.search import SearchResponse
@@ -14,8 +14,9 @@ router = APIRouter(tags=["search"])
 
 @router.get("/search", response_model=SearchResponse)
 def search_documents(
+    user: CurrentUserDep,
     session: DbSessionDep,
-    tenant_id: UUID,
+    tenant_id: UUID | None = None,
     q: str = Query(min_length=1),
     doc_type: str | None = None,
     doc_types: list[str] | None = Query(default=None),
@@ -28,6 +29,7 @@ def search_documents(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> SearchResponse:
+    ensure_tenant_id(user, tenant_id)
     if not q.strip():
         raise ApplicationError(
             "Search query must not be empty",
@@ -35,10 +37,13 @@ def search_documents(
             code="empty_query",
         )
 
-    resolved_doc_types = resolve_doc_type_filters(doc_type=doc_type, doc_types=doc_types)
+    if doc_type:
+        require_api_section_view(user, doc_type)
+
+    resolved_doc_types = resolve_api_doc_types(user, doc_type=doc_type, doc_types=doc_types)
     repository = SearchRepository(session)
     items, total = repository.search(
-        tenant_id=tenant_id,
+        tenant_id=user.tenant_id,
         query=q,
         doc_types=resolved_doc_types,
         status=status,

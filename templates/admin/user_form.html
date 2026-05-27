@@ -9,6 +9,7 @@
 {% endif %}
 
 <form method="post" action="{{ form_action }}" class="admin-form" id="user-form">
+  {% include "csrf_field.html" %}
   <label>
     <span>Имя *</span>
     <input type="text" name="full_name" required value="{{ form_user.full_name if form_user else '' }}" placeholder="Иван Иванов">

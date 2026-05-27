@@ -61,7 +61,7 @@ def test_upload_flow_creates_document_job_and_storage_metadata():
         UploadDocumentCommand(
             tenant_id=uuid4(),
             filename="invoice.pdf",
-            content=b"hello invoice",
+            content=b"%PDF-1.4 hello invoice",
             mime_type="application/pdf",
             doc_type="prikaz",
             document_date=date(2026, 5, 14),
@@ -91,7 +91,7 @@ def test_upload_flow_rejects_missing_doc_type():
             UploadDocumentCommand(
                 tenant_id=uuid4(),
                 filename="order.pdf",
-                content=b"hello",
+                content=b"%PDF-1.4 hello",
                 mime_type="application/pdf",
             ),
             enqueue_ocr_job=lambda job_id: FakeAsyncResult(),
