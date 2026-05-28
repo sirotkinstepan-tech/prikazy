@@ -15,6 +15,8 @@ def test_validate_doc_type_accepts_known_values():
     assert validate_doc_type("lna") == "lna"
     assert validate_doc_type("technolog") == "technolog"
     assert validate_doc_type("kadry") == "kadry"
+    assert validate_doc_type("incoming_correspondence") == "incoming_correspondence"
+    assert validate_doc_type("outgoing_correspondence") == "outgoing_correspondence"
 
 
 def test_validate_doc_type_rejects_unknown_values():
@@ -60,4 +62,6 @@ def test_document_type_enum_values():
         "lna",
         "technolog",
         "kadry",
+        "incoming_correspondence",
+        "outgoing_correspondence",
     }

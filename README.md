@@ -31,6 +31,10 @@ MVP по спецификации `specs/prikazy.md`.
 | `internal_contract` | Договоры внутренние |
 | `external_contract` | Договоры внешние |
 | `lna` | ЛНА (локальные нормативные акты) |
+| `technolog` | Технолог |
+| `kadry` | Кадры |
+| `incoming_correspondence` | Входящая корреспонденция |
+| `outgoing_correspondence` | Исходящая корреспонденция |
 
 Справочник разделов: `GET /sections`.
 

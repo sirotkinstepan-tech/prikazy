@@ -34,6 +34,8 @@ class DocumentType(StrEnum):
     LNA = "lna"
     TECHNOLOG = "technolog"
     KADRY = "kadry"
+    INCOMING_CORRESPONDENCE = "incoming_correspondence"
+    OUTGOING_CORRESPONDENCE = "outgoing_correspondence"
 
 
 class SectionAccessLevel(StrEnum):

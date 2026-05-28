@@ -8,6 +8,8 @@ DOCUMENT_SECTION_LABELS: dict[DocumentType, str] = {
     DocumentType.LNA: "ЛНА",
     DocumentType.TECHNOLOG: "Технолог",
     DocumentType.KADRY: "Кадры",
+    DocumentType.INCOMING_CORRESPONDENCE: "Входящая корреспонденция",
+    DocumentType.OUTGOING_CORRESPONDENCE: "Исходящая корреспонденция",
 }
 
 
