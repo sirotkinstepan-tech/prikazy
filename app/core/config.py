@@ -41,7 +41,9 @@ class Settings(BaseSettings):
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document,"
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    default_ocr_provider: str = "stub"
+    default_ocr_provider: str = Field(default="tesseract", validation_alias="DEFAULT_OCR_PROVIDER")
+    ocr_tesseract_languages: str = Field(default="rus+eng", validation_alias="OCR_TESSERACT_LANGUAGES")
+    ocr_tesseract_dpi_scale: float = Field(default=2.0, validation_alias="OCR_TESSERACT_DPI_SCALE")
 
     session_secret: str = Field(
         default="change-me-in-production-use-a-long-random-string",
@@ -71,6 +73,8 @@ class Settings(BaseSettings):
         default="yandexgpt-lite/latest",
         validation_alias="YANDEX_MODEL",
     )
+    ai_monthly_query_limit: int = Field(default=100, validation_alias="AI_MONTHLY_QUERY_LIMIT")
+    ai_document_text_max_chars: int = Field(default=12000, validation_alias="AI_DOCUMENT_TEXT_MAX_CHARS")
 
     model_config = SettingsConfigDict(
         env_file=".env",

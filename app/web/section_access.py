@@ -1,3 +1,5 @@
+from typing import Literal
+
 from app.auth.service import AuthenticatedUser
 from app.core.errors import ApplicationError
 from app.core.section_permissions import (
@@ -7,9 +9,12 @@ from app.core.section_permissions import (
     level_can_manage_document_links,
     level_can_upload,
     level_can_use_ai,
+    level_has_unlimited_ai,
     level_can_view,
 )
 from app.models.enums import SectionAccessLevel, UserRole
+
+AiAccessMode = Literal["none", "limited", "unlimited"]
 
 
 def user_allowed_doc_types(user: AuthenticatedUser) -> list[str] | None:
@@ -59,16 +64,20 @@ def user_can_upload_any_section(user: AuthenticatedUser) -> bool:
     return any(level_can_upload(level) for level in user.section_access.values())
 
 
-def user_can_use_ai(user: AuthenticatedUser) -> bool:
-    allowed = ai_allowed_doc_types(user)
-    return allowed is None or bool(allowed)
-
-
-def can_manage_document_links(user: AuthenticatedUser, doc_type: str | None) -> bool:
+def ai_access_mode(user: AuthenticatedUser) -> AiAccessMode:
     if user.role == UserRole.ADMIN:
-        return True
-    level = access_for_doc_type(user.section_access, doc_type)
-    return level_can_manage_document_links(level)
+        return "unlimited"
+    has_unlimited = any(level_has_unlimited_ai(level) for level in user.section_access.values())
+    if has_unlimited:
+        return "unlimited"
+    has_limited = any(level_can_use_ai(level) for level in user.section_access.values())
+    if has_limited:
+        return "limited"
+    return "none"
+
+
+def user_can_use_ai(user: AuthenticatedUser) -> bool:
+    return ai_access_mode(user) != "none"
 
 
 def ai_allowed_doc_types(user: AuthenticatedUser) -> list[str] | None:
@@ -88,11 +97,19 @@ def require_ai_access(user: AuthenticatedUser) -> list[str] | None:
         return None
     if not allowed:
         raise ApplicationError(
-            "AI-запросы доступны только пользователям с правом «Полный доступ» к разделу",
+            "AI доступен при праве загрузки и скачивания в разделе "
+            "или при «Полном доступе»",
             status_code=403,
             code="ai_access_denied",
         )
     return allowed
+
+
+def can_manage_document_links(user: AuthenticatedUser, doc_type: str | None) -> bool:
+    if user.role == UserRole.ADMIN:
+        return True
+    level = access_for_doc_type(user.section_access, doc_type)
+    return level_can_manage_document_links(level)
 
 
 def require_section_manage_links(user: AuthenticatedUser, doc_type: str | None) -> None:

@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, require_web_user
 from app.auth.service import AuthenticatedUser
 from app.core.config import Settings
 from app.core.section_permissions import resolve_access_for_role
@@ -68,6 +68,20 @@ def test_documents_rejects_foreign_tenant(authed_client: TestClient):
         params={"tenant_id": str(OTHER_TENANT), "limit": 1},
     )
     assert response.status_code == 403
+    authed_client.app.dependency_overrides.clear()
+
+
+def test_employee_portal_section_denied_returns_html(authed_client: TestClient):
+    employee = _employee_view_prikaz_only()
+    authed_client.app.dependency_overrides[require_web_user] = lambda: employee
+    response = authed_client.get(
+        "/portal/documents",
+        params={"section": DocumentType.INTERNAL_CONTRACT.value},
+        headers={"Accept": "text/html"},
+    )
+    assert response.status_code == 403
+    assert "text/html" in response.headers["content-type"]
+    assert "Нет доступа" in response.text
     authed_client.app.dependency_overrides.clear()
 
 

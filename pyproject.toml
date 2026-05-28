@@ -10,8 +10,11 @@ dependencies = [
   "fastapi",
   "httpx",
   "openpyxl",
+  "pillow",
   "psycopg[binary]",
   "pydantic-settings",
+  "pymupdf",
+  "pytesseract",
   "python-docx",
   "python-multipart",
   "jinja2",
@@ -24,7 +27,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "black",
-  "httpx",
   "pytest",
   "pytest-cov",
   "ruff",

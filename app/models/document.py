@@ -39,5 +39,10 @@ class Document(Base):
         server_default=func.now(),
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id"),
+    )
 
     storage_object = relationship("StorageObject")
+    created_by_user = relationship("User", foreign_keys=[created_by_user_id])

@@ -61,3 +61,16 @@ class ObjectStorageService:
     def download_bytes(self, *, bucket: str, object_key: str) -> bytes:
         response = self.client.get_object(Bucket=bucket, Key=object_key)
         return response["Body"].read()
+
+    def delete_object(self, *, bucket: str, object_key: str) -> None:
+        try:
+            self.client.delete_object(Bucket=bucket, Key=object_key)
+            logger.info(
+                "deleted object storage key",
+                extra={"bucket": bucket, "object_key": object_key},
+            )
+        except ClientError:
+            logger.exception(
+                "failed to delete object storage key",
+                extra={"bucket": bucket, "object_key": object_key},
+            )

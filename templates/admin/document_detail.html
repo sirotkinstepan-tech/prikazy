@@ -2,12 +2,40 @@
 {% block title %}Документ{% endblock %}
 {% block page_title %}{{ document.title or document.source_filename or "Документ" }}{% endblock %}
 {% block topbar_actions %}
+{% if in_trash %}
+<form method="post" action="/admin/documents/trash/{{ document.id }}/restore" class="inline-form">
+  {% include "csrf_field.html" %}
+  <button type="submit" class="btn btn-secondary btn-sm">Восстановить</button>
+</form>
+<form
+  method="post"
+  action="/admin/documents/trash/{{ document.id }}/purge"
+  class="inline-form"
+  onsubmit="return confirm('Удалить документ безвозвратно?');"
+>
+  {% include "csrf_field.html" %}
+  <button type="submit" class="btn btn-ghost btn-sm text-error">Удалить навсегда</button>
+</form>
+{% else %}
 <form method="post" action="/admin/documents/{{ document.id }}/reprocess" class="inline-form">
   {% include "csrf_field.html" %}
   <button type="submit" class="btn btn-secondary btn-sm">↻ Переобработать</button>
 </form>
+<form
+  method="post"
+  action="/admin/documents/{{ document.id }}/delete"
+  class="inline-form"
+  onsubmit="return confirm('Переместить документ в корзину?');"
+>
+  {% include "csrf_field.html" %}
+  <button type="submit" class="btn btn-ghost btn-sm text-error">В корзину</button>
+</form>
+{% endif %}
 {% endblock %}
 {% block content %}
+{% if in_trash %}
+<div class="alert alert-warn">Документ в корзине (с {{ format_date(document.archived_at) }}). Не отображается в портале и поиске.</div>
+{% endif %}
 {% if link_success %}
 <div class="alert alert-success">Связь сохранена.</div>
 {% endif %}

@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from app.services.document_extractor import extract_office_document_text
 from app.services.mime_types import is_office_document
+from app.services.tesseract_ocr import process_image, process_pdf
 
 
 @dataclass(frozen=True)
@@ -62,9 +63,75 @@ class StubOcrProvider(OcrProvider):
         )
 
 
-def get_ocr_provider(provider_name: str) -> OcrProvider:
+class TesseractOcrProvider(OcrProvider):
+    name = "tesseract"
+
+    def __init__(self, *, languages: str = "rus+eng", dpi_scale: float = 2.0):
+        self.languages = languages
+        self.dpi_scale = dpi_scale
+
+    def process(
+        self,
+        *,
+        content: bytes,
+        mime_type: str,
+        filename: str | None = None,
+    ) -> OcrProviderResult:
+        if mime_type == "application/pdf" or (filename and filename.lower().endswith(".pdf")):
+            result = process_pdf(
+                content,
+                languages=self.languages,
+                dpi_scale=self.dpi_scale,
+            )
+        elif mime_type.startswith("image/"):
+            result = process_image(content, languages=self.languages)
+        else:
+            raise ValueError(f"Tesseract OCR does not support MIME type: {mime_type}")
+
+        return OcrProviderResult(
+            provider=self.name,
+            language=self.languages,
+            full_text=result.full_text,
+            confidence=result.confidence,
+            layout_json={
+                "provider": self.name,
+                "method": result.extraction_method,
+                "pages": [
+                    {
+                        "page_number": page.page_number,
+                        "method": page.method,
+                        "confidence": page.confidence,
+                    }
+                    for page in result.pages
+                ],
+            },
+            page_data={
+                "pages": [
+                    {
+                        "page_number": page.page_number,
+                        "confidence": page.confidence,
+                        "method": page.method,
+                    }
+                    for page in result.pages
+                ]
+            },
+            extracted_fields=[],
+        )
+
+
+def get_ocr_provider(
+    provider_name: str,
+    *,
+    tesseract_languages: str = "rus+eng",
+    tesseract_dpi_scale: float = 2.0,
+) -> OcrProvider:
     if provider_name == "stub":
         return StubOcrProvider()
+    if provider_name == "tesseract":
+        return TesseractOcrProvider(
+            languages=tesseract_languages,
+            dpi_scale=tesseract_dpi_scale,
+        )
     raise ValueError(f"Unsupported OCR provider: {provider_name}")
 
 
@@ -73,7 +140,9 @@ def process_document_content(
     content: bytes,
     mime_type: str,
     filename: str | None = None,
-    ocr_provider_name: str = "stub",
+    ocr_provider_name: str = "tesseract",
+    tesseract_languages: str = "rus+eng",
+    tesseract_dpi_scale: float = 2.0,
 ) -> OcrProviderResult:
     if is_office_document(mime_type, filename):
         full_text = extract_office_document_text(
@@ -91,5 +160,9 @@ def process_document_content(
             extracted_fields=[],
         )
 
-    provider = get_ocr_provider(ocr_provider_name)
+    provider = get_ocr_provider(
+        ocr_provider_name,
+        tesseract_languages=tesseract_languages,
+        tesseract_dpi_scale=tesseract_dpi_scale,
+    )
     return provider.process(content=content, mime_type=mime_type, filename=filename)

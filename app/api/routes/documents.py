@@ -65,6 +65,7 @@ async def upload_document(
             document_date=document_date,
             counterparty_name=counterparty_name,
             title=title,
+            created_by_user_id=user.id,
         ),
         enqueue_ocr_job=process_ocr_job.delay,
     )

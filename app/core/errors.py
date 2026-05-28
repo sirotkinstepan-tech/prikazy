@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 
 
 class ApplicationError(Exception):
@@ -23,11 +22,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return RedirectResponse(url=exc.url, status_code=303)
 
     @app.exception_handler(ApplicationError)
-    async def application_error_handler(
-        _request: Request,
-        exc: ApplicationError,
-    ) -> JSONResponse:
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={"error": {"code": exc.code, "message": exc.message}},
-        )
+    async def application_error_handler(request: Request, exc: ApplicationError):
+        from app.web.error_pages import build_application_error_response
+
+        return build_application_error_response(request, exc)

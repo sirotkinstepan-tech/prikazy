@@ -108,6 +108,7 @@ def admin_documents(
     for item in items:
         item.latest_job = repository.latest_job_for_document(item)
     total_pages = max(1, (total + limit - 1) // limit)
+    trash_count = repository.count_trashed_for_tenant(user.tenant_id)
     return templates.TemplateResponse(
         request,
         "admin/documents.html",
@@ -118,6 +119,10 @@ def admin_documents(
             "total": total,
             "page": page,
             "total_pages": total_pages,
+            "trash_count": trash_count,
+            "trash_view": False,
+            "success": request.query_params.get("success"),
+            "error": request.query_params.get("error"),
             "filters": {
                 "doc_type": doc_type or "",
                 "status": status_filter or "",
@@ -129,6 +134,149 @@ def admin_documents(
     )
 
 
+@router.get("/documents/trash")
+def admin_documents_trash(
+    request: Request,
+    user: WebAdminDep,
+    session: DbSessionDep,
+    page: int = Query(default=1, ge=1),
+):
+    limit = 30
+    offset = (page - 1) * limit
+    repository = DocumentRepository(session)
+    items, total = repository.list_trashed_for_tenant(
+        tenant_id=user.tenant_id,
+        limit=limit,
+        offset=offset,
+    )
+    for item in items:
+        item.latest_job = repository.latest_job_for_document(item)
+    total_pages = max(1, (total + limit - 1) // limit)
+    trash_count = total
+    return templates.TemplateResponse(
+        request,
+        "admin/documents.html",
+        {
+            **web_template_context(request),
+            "user": user,
+            "documents": items,
+            "total": total,
+            "page": page,
+            "total_pages": total_pages,
+            "trash_count": trash_count,
+            "trash_view": True,
+            "success": request.query_params.get("success"),
+            "error": request.query_params.get("error"),
+            "filters": {},
+        },
+    )
+
+
+@router.post("/documents/{document_id}/delete")
+def admin_document_delete(
+    request: Request,
+    user: WebAdminDep,
+    session: DbSessionDep,
+    settings: SettingsDep,
+    document_id: UUID,
+    csrf_token: Annotated[str, Form()],
+):
+    verify_csrf_form(request, csrf_token)
+    service = DocumentService(
+        session=session,
+        settings=settings,
+        storage=ObjectStorageService(settings),
+    )
+    try:
+        service.move_document_to_trash(document_id=document_id, tenant_id=user.tenant_id)
+    except ApplicationError as exc:
+        return RedirectResponse(
+            url=f"/admin/documents?error={exc.code}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    return RedirectResponse(
+        url="/admin/documents?success=trashed",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/documents/trash/{document_id}/restore")
+def admin_document_restore(
+    request: Request,
+    user: WebAdminDep,
+    session: DbSessionDep,
+    settings: SettingsDep,
+    document_id: UUID,
+    csrf_token: Annotated[str, Form()],
+):
+    verify_csrf_form(request, csrf_token)
+    service = DocumentService(
+        session=session,
+        settings=settings,
+        storage=ObjectStorageService(settings),
+    )
+    try:
+        service.restore_document_from_trash(document_id=document_id, tenant_id=user.tenant_id)
+    except ApplicationError as exc:
+        return RedirectResponse(
+            url=f"/admin/documents/trash?error={exc.code}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    return RedirectResponse(
+        url="/admin/documents/trash?success=restored",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/documents/trash/{document_id}/purge")
+def admin_document_purge(
+    request: Request,
+    user: WebAdminDep,
+    session: DbSessionDep,
+    settings: SettingsDep,
+    document_id: UUID,
+    csrf_token: Annotated[str, Form()],
+):
+    verify_csrf_form(request, csrf_token)
+    service = DocumentService(
+        session=session,
+        settings=settings,
+        storage=ObjectStorageService(settings),
+    )
+    try:
+        service.purge_document(document_id=document_id, tenant_id=user.tenant_id)
+    except ApplicationError as exc:
+        return RedirectResponse(
+            url=f"/admin/documents/trash?error={exc.code}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    return RedirectResponse(
+        url="/admin/documents/trash?success=purged",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/documents/trash/empty")
+def admin_trash_empty(
+    request: Request,
+    user: WebAdminDep,
+    session: DbSessionDep,
+    settings: SettingsDep,
+    csrf_token: Annotated[str, Form()],
+):
+    verify_csrf_form(request, csrf_token)
+    service = DocumentService(
+        session=session,
+        settings=settings,
+        storage=ObjectStorageService(settings),
+    )
+    purged = service.purge_all_trash(tenant_id=user.tenant_id)
+    return RedirectResponse(
+        url=f"/admin/documents/trash?success=emptied&count={purged}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
 @router.get("/documents/{document_id}")
 def admin_document_detail(
     request: Request,
@@ -137,10 +285,11 @@ def admin_document_detail(
     document_id: UUID,
 ):
     repository = DocumentRepository(session)
-    document = repository.get_for_tenant(document_id, user.tenant_id)
+    document = repository.get_for_tenant(document_id, user.tenant_id, trash="any")
     if document is None:
         raise ApplicationError("Document not found", status_code=404, code="document_not_found")
     document.latest_job = repository.latest_job_for_document(document)
+    in_trash = document.archived_at is not None
     ocr_repository = OcrResultRepository(session)
     ocr_result = ocr_repository.latest_for_document(document.id, document.created_at)
     extracted_fields = ocr_repository.fields_for_result(ocr_result) if ocr_result else []
@@ -168,6 +317,7 @@ def admin_document_detail(
             "related_documents": related_documents,
             "link_error": link_error,
             "link_success": link_success,
+            "in_trash": in_trash,
         },
     )
 
@@ -298,6 +448,7 @@ async def admin_upload(
             document_date=document_date,
             counterparty_name=counterparty_name,
             title=title.strip() if title else None,
+            created_by_user_id=user.id,
         ),
         enqueue_ocr_job=process_ocr_job.delay,
     )

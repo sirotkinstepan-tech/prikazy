@@ -5,7 +5,9 @@
   <h1>Добро пожаловать, {{ user.full_name.split()[0] }}!</h1>
   <p>Загружайте приказы, договоры и ЛНА — находите нужные документы в базе за несколько секунд.</p>
   <div class="portal-hero-actions">
+    {% if can_upload_any %}
     <a href="/portal/upload" class="btn btn-primary btn-lg">📤 Загрузить документ</a>
+    {% endif %}
     <a href="/portal/search" class="btn btn-secondary btn-lg">🔍 Найти документ</a>
     {% if can_use_ai %}
     <a href="/portal/ai" class="btn btn-secondary btn-lg">🤖 Спросить AI</a>
@@ -28,20 +30,28 @@
   <div class="section-header">
     <h2>Разделы</h2>
   </div>
+  {% if portal_sections %}
   <div class="section-cards">
-    {% for section in document_sections() %}
+    {% for section in portal_sections %}
     <a href="/portal/documents?section={{ section.slug }}" class="section-card">
       <strong>{{ section.label }}</strong>
       <span class="muted">Открыть базу раздела →</span>
     </a>
     {% endfor %}
   </div>
+  {% else %}
+  <div class="empty-state">
+    <p>У вас нет доступа ни к одному разделу. Обратитесь к администратору.</p>
+  </div>
+  {% endif %}
 </section>
 
 <section class="portal-section">
   <div class="section-header">
     <h2>Недавние документы</h2>
+    {% if portal_sections %}
     <a href="/portal/documents" class="link">Все документы →</a>
+    {% endif %}
   </div>
   {% if recent_documents %}
   <div class="doc-cards">
@@ -61,8 +71,12 @@
   </div>
   {% else %}
   <div class="empty-state">
+    {% if can_upload_any %}
     <p>Пока нет документов. Загрузите первый файл!</p>
     <a href="/portal/upload" class="btn btn-primary">Загрузить документ</a>
+    {% else %}
+    <p>Пока нет доступных документов в ваших разделах.</p>
+    {% endif %}
   </div>
   {% endif %}
 </section>

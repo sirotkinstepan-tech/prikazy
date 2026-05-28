@@ -32,6 +32,8 @@ class DocumentType(StrEnum):
     INTERNAL_CONTRACT = "internal_contract"
     EXTERNAL_CONTRACT = "external_contract"
     LNA = "lna"
+    TECHNOLOG = "technolog"
+    KADRY = "kadry"
 
 
 class SectionAccessLevel(StrEnum):

@@ -78,6 +78,8 @@ class OcrProcessingService:
                 mime_type=document.mime_type,
                 filename=document.source_filename,
                 ocr_provider_name=self.settings.default_ocr_provider,
+                tesseract_languages=self.settings.ocr_tesseract_languages,
+                tesseract_dpi_scale=self.settings.ocr_tesseract_dpi_scale,
             )
             processed_at = datetime.now(UTC)
             ocr_result = OcrResult(

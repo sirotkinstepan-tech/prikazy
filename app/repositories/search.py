@@ -1,8 +1,68 @@
+import re
 from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+MIN_SEARCH_TOKEN_LEN = 3
+STEM_MIN_LEN = 5
+
+
+def tokenize_search_query(query: str) -> list[str]:
+    tokens = re.findall(r"[^\W_]+", query, flags=re.UNICODE)
+    seen: set[str] = set()
+    normalized: list[str] = []
+    for token in tokens:
+        lowered = token.lower()
+        if len(lowered) < MIN_SEARCH_TOKEN_LEN or lowered in seen:
+            continue
+        seen.add(lowered)
+        normalized.append(lowered)
+    return normalized
+
+
+def token_like_pattern(token: str) -> str:
+    if len(token) >= STEM_MIN_LEN:
+        return f"%{token[:-1]}%"
+    return f"%{token}%"
+
+
+def _build_text_match_clause(tokens: list[str], params: dict) -> str:
+    if not tokens:
+        return """(
+                d.title ILIKE :like_pattern
+                OR d.source_filename ILIKE :like_pattern
+                OR lor.full_text ILIKE :like_pattern
+                OR (lor.search_vector IS NOT NULL AND lor.search_vector @@ q.tsq)
+            )"""
+
+    token_clauses: list[str] = []
+    for index, token in enumerate(tokens):
+        param_name = f"token_{index}"
+        params[param_name] = token_like_pattern(token)
+        token_clauses.append(
+            f"""(
+                d.title ILIKE :{param_name}
+                OR d.source_filename ILIKE :{param_name}
+                OR lor.full_text ILIKE :{param_name}
+            )"""
+        )
+
+    token_match = " AND ".join(token_clauses)
+    return f"""(
+                ({token_match})
+                OR d.title ILIKE :like_pattern
+                OR d.source_filename ILIKE :like_pattern
+                OR lor.full_text ILIKE :like_pattern
+                OR (lor.search_vector IS NOT NULL AND lor.search_vector @@ q.tsq)
+            )"""
+
+
+def _title_token_match_expr(tokens: list[str]) -> str:
+    if not tokens:
+        return "FALSE"
+    return " OR ".join(f"d.title ILIKE :token_{index}" for index in range(len(tokens)))
 
 
 class SearchRepository:
@@ -22,20 +82,14 @@ class SearchRepository:
         created_at_from: datetime | None = None,
         created_at_to: datetime | None = None,
         counterparty_name: str | None = None,
+        active_only: bool = True,
+        include_trashed: bool = False,
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[dict], int]:
         query = query.strip()
+        tokens = tokenize_search_query(query)
         like_pattern = f"%{query}%"
-        filters = [
-            "d.tenant_id = :tenant_id",
-            """(
-                d.title ILIKE :like_pattern
-                OR d.source_filename ILIKE :like_pattern
-                OR lor.full_text ILIKE :like_pattern
-                OR (lor.search_vector IS NOT NULL AND lor.search_vector @@ q.tsq)
-            )""",
-        ]
         params: dict = {
             "tenant_id": tenant_id,
             "query": query,
@@ -43,6 +97,16 @@ class SearchRepository:
             "limit": limit,
             "offset": offset,
         }
+        text_match_clause = _build_text_match_clause(tokens, params)
+        title_token_match = _title_token_match_expr(tokens)
+        filters = [
+            "d.tenant_id = :tenant_id",
+            text_match_clause,
+        ]
+        if active_only:
+            filters.append("d.archived_at IS NULL")
+        elif include_trashed:
+            filters.append("d.archived_at IS NOT NULL")
         if doc_types:
             filters.append("d.doc_type = ANY(:doc_types)")
             params["doc_types"] = doc_types
@@ -85,7 +149,7 @@ class SearchRepository:
                 ORDER BY document_id, document_created_at, processed_at DESC
             )
         """
-        select_fields = """
+        select_fields = f"""
             SELECT
                 d.id AS document_id,
                 d.title,
@@ -97,10 +161,12 @@ class SearchRepository:
                 CASE
                     WHEN d.title ILIKE :like_pattern
                          OR d.source_filename ILIKE :like_pattern THEN 1.0
+                    WHEN {title_token_match} THEN 0.9
                     ELSE COALESCE(ts_rank(lor.search_vector, q.tsq), 0)
                 END AS rank,
                 CASE
                     WHEN d.title ILIKE :like_pattern THEN d.title
+                    WHEN {title_token_match} THEN d.title
                     WHEN d.source_filename ILIKE :like_pattern THEN d.source_filename
                     ELSE ts_headline('simple', lor.full_text, q.tsq)
                 END AS snippet

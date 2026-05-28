@@ -1,5 +1,6 @@
 """SQLAlchemy model package."""
 
+from app.models.ai_query_log import AiQueryLog
 from app.models.document import Document
 from app.models.document_page import DocumentPage
 from app.models.document_relation import DocumentRelation
@@ -13,6 +14,7 @@ from app.models.user import User
 from app.models.user_section_access import UserSectionAccess
 
 __all__ = [
+    "AiQueryLog",
     "Document",
     "DocumentPage",
     "DocumentRelation",

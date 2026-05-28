@@ -50,6 +50,7 @@ class JobService:
             updated_at=now,
         )
         self.jobs.add(job)
+        self.session.flush()
         self.events.add(
             document_id=document.id,
             document_created_at=document.created_at,

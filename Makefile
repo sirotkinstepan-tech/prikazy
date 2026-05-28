@@ -8,7 +8,7 @@ CSRF_FILE ?= .api-csrf-token
 API_EMAIL ?= admin@example.com
 API_PASSWORD ?= admin123
 
-.PHONY: env up down migrate logs health upload search test lint format-check local-up local-down local-bootstrap api-login api-curl-upload api-curl-search seed setup setup-yandex
+.PHONY: env up down migrate logs health upload search test lint format-check local-up local-down local-bootstrap api-login api-curl-upload api-curl-search seed seed-reset-passwords setup setup-yandex reprocess-stub-ocr
 
 env:
 	@test -f .env || cp .env.example .env
@@ -22,7 +22,7 @@ setup-yandex:
 	./scripts/setup-yandex-llm.sh
 
 up: env
-	DOCKER_BUILDKIT=0 docker compose up --build
+	DOCKER_BUILDKIT=0 docker compose up -d --build
 
 down:
 	docker compose down
@@ -41,6 +41,9 @@ migrate:
 
 seed:
 	docker compose exec app python scripts/seed_users.py
+
+seed-reset-passwords:
+	docker compose exec app python scripts/seed_users.py --reset-passwords
 
 logs:
 	docker compose logs -f app worker
@@ -71,6 +74,9 @@ api-curl-search: api-login
 		--data-urlencode "q=$(SEARCH_Q)"
 
 search: api-curl-search
+
+reprocess-stub-ocr:
+	docker compose exec -T worker python scripts/reprocess_documents.py --provider stub
 
 test:
 	docker compose exec -T app pytest

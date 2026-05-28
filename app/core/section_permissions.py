@@ -53,7 +53,12 @@ def level_can_manage_document_links(level: SectionAccessLevel) -> bool:
 
 
 def level_can_use_ai(level: SectionAccessLevel) -> bool:
-    """AI-запросы к базе доступны только при «Полном доступе» к разделу."""
+    """AI доступен при праве загрузки и скачивания в разделе."""
+    return level_can_upload(level) and level_can_download(level)
+
+
+def level_has_unlimited_ai(level: SectionAccessLevel) -> bool:
+    """Безлимитный AI только при «Полном доступе» к разделу."""
     return level == SectionAccessLevel.FULL
 
 

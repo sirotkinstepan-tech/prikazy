@@ -10,10 +10,18 @@ from app.core.config import Settings
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    @staticmethod
+    def _is_inline_file_preview(request: Request) -> bool:
+        return request.url.path.endswith("/file") and request.query_params.get("disposition") == "inline"
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "DENY")
+        if self._is_inline_file_preview(request):
+            # PDF/image inline preview is embedded on the same site (portal card).
+            response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        else:
+            response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault(
             "Permissions-Policy",

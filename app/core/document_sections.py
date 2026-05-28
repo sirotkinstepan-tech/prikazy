@@ -6,6 +6,8 @@ DOCUMENT_SECTION_LABELS: dict[DocumentType, str] = {
     DocumentType.INTERNAL_CONTRACT: "Договоры внутренние",
     DocumentType.EXTERNAL_CONTRACT: "Договоры внешние",
     DocumentType.LNA: "ЛНА",
+    DocumentType.TECHNOLOG: "Технолог",
+    DocumentType.KADRY: "Кадры",
 }
 
 

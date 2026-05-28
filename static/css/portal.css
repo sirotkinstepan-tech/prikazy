@@ -187,6 +187,11 @@
   width: 100%; min-height: 70vh; border: 1px solid var(--color-border);
   border-radius: 8px; background: #525659;
 }
+.doc-preview-embed {
+  display: block; width: 100%; min-height: 70vh; border: 0;
+}
+.doc-preview-loading { padding: 2rem; text-align: center; color: #e2e8f0; }
+.doc-preview-actions { margin: 0 0 .75em; font-size: .9em; }
 .doc-preview-image {
   display: block; max-width: 100%; height: auto; margin: 0 auto;
   border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
@@ -205,6 +210,7 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .ai-page-header { margin-bottom: 1.5em; }
+.ai-quota { margin-top: .35em; font-size: .92em; }
 .ai-form {
   background: #fff; border-radius: 12px; padding: 1.5em; box-shadow: var(--shadow);
   display: flex; flex-direction: column; gap: .75em; margin-bottom: 2em;
@@ -226,7 +232,28 @@
 .ai-answer-body {
   white-space: pre-wrap; line-height: 1.55; margin-top: .75em;
 }
+.ai-doc-links { margin-top: 1.25em; }
+.ai-doc-links-title {
+  font-size: .95em; color: var(--color-muted); margin: 0 0 .65em;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.ai-doc-links ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .5em; }
+.ai-doc-link {
+  display: inline-flex; align-items: center; gap: .35em;
+  color: var(--color-primary); text-decoration: none; font-weight: 500;
+}
+.ai-doc-link:hover { text-decoration: underline; }
 .ai-sources { margin-top: 1em; color: var(--color-muted); font-size: .9em; }
+.ai-last-question { margin-bottom: .5em; }
+.ai-follow-up {
+  margin-top: 1.5em; padding-top: 1.25em; border-top: 1px solid var(--color-border);
+  display: flex; flex-direction: column; gap: .65em;
+}
+.ai-follow-up-hint { margin: 0; font-size: .9em; }
+.ai-follow-up textarea {
+  width: 100%; min-height: 72px; padding: .75em 1em; border: 1px solid var(--color-border);
+  border-radius: var(--radius); font: inherit; resize: vertical;
+}
 .alert-warning {
   background: #fffbeb; border: 1px solid #fcd34d; color: #92400e;
   border-radius: var(--radius); padding: .85em 1em; margin-bottom: 1em;

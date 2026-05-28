@@ -23,7 +23,19 @@ Leave this terminal running. In a second terminal, apply database migrations:
 
 ```bash
 make migrate
+make seed
 ```
+
+`make seed` creates `admin@example.com` and `employee@example.com` with dev passwords
+only on **first** run. It does not overwrite existing passwords. To restore documented
+defaults (`admin123` / `employee123`):
+
+```bash
+make seed-reset-passwords
+```
+
+The demo employee gets view-only access to all document sections. Re-run `make seed`
+to backfill section access if an older employee account had none.
 
 Check that the API is alive:
 

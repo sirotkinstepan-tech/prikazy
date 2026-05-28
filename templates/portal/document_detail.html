@@ -110,11 +110,17 @@
   {% if preview_mode == "pdf" %}
   <div class="doc-preview-card">
     <h3>Просмотр оригинала документа</h3>
-    <iframe
+    <p class="doc-preview-actions">
+      <a href="/viewer?document_id={{ document.id }}" class="link" target="_blank" rel="noopener">Открыть в отдельном просмотрщике ↗</a>
+    </p>
+    <div
+      id="doc-preview-container"
       class="doc-preview-frame"
-      src="/portal/documents/{{ document.id }}/file?disposition=inline"
-      title="Просмотр {{ document.source_filename or 'документа' }}"
-    ></iframe>
+      data-file-url="/portal/documents/{{ document.id }}/file?disposition=inline"
+      aria-label="Просмотр {{ document.source_filename or 'документа' }}"
+    >
+      <p class="muted doc-preview-loading">Загрузка документа…</p>
+    </div>
   </div>
   {% elif preview_mode == "image" %}
   <div class="doc-preview-card">
@@ -179,6 +185,33 @@
       window.prompt('Скопируйте ID:', el.textContent.trim());
     }
   });
+})();
+
+(function () {
+  const container = document.getElementById("doc-preview-container");
+  if (!container) return;
+  const fileUrl = container.dataset.fileUrl;
+  fetch(fileUrl, { credentials: "same-origin" })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Не удалось загрузить файл для просмотра");
+      }
+      return response.blob();
+    })
+    .then((blob) => {
+      container.innerHTML = "";
+      const pdfBlob = blob.type === "application/pdf"
+        ? blob
+        : new Blob([blob], { type: "application/pdf" });
+      const iframe = document.createElement("iframe");
+      iframe.src = URL.createObjectURL(pdfBlob);
+      iframe.className = "doc-preview-embed";
+      iframe.title = container.getAttribute("aria-label") || "Документ";
+      container.appendChild(iframe);
+    })
+    .catch((error) => {
+      container.innerHTML = `<p class="alert alert-error">${error.message || "Ошибка просмотра"}</p>`;
+    });
 })();
 </script>
 {% endblock %}

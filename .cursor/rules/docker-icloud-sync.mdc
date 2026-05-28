@@ -1,41 +1,40 @@
 ---
-description: Sync code to Docker after edits (iCloud Drive volume lag)
+description: Agent MUST sync to Docker after every code edit (iCloud bind-mount lag)
 alwaysApply: true
 ---
 
-# iCloud Drive and Docker (prikazy)
+# iCloud + Docker — mandatory agent workflow (prikazy)
 
-Also covered by the global user rule `icloud-docker-sync` in `~/.cursor/rules/`.
+This repo is in **iCloud Drive** (`com~apple~CloudDocs`). Docker bind mount `.:/app` is **often stale**. The agent must not rely on the mount seeing new files.
 
-This repo lives in **iCloud Drive**. The bind mount `.:/app` in Docker Compose often shows **stale files** (old `main.py`, missing tests, deleted routes still present). Edits on disk are not always visible inside `prikazy-app-1` / `prikazy-worker-1` until synced.
+## After EVERY code change (agent — do not skip)
 
-## Required after every code change
+When you edit anything under `app/`, `tests/`, `alembic/`, `templates/`, `static/`, `scripts/`, `pyproject.toml`, `docker-compose.yml`, or `.env.example`:
 
-After modifying any project file under `app/`, `tests/`, `alembic/`, `pyproject.toml`, or Docker-related config:
-
-1. Run from the project root:
+1. **Run sync yourself** from project root (same turn, before Docker verify):
 
 ```bash
 ./scripts/docker-sync.sh
 ```
 
-2. If API or worker behavior must pick up changes immediately, restart:
+2. **Restart** if imports, routes, Celery tasks, middleware, or env-at-startup changed:
 
 ```bash
 docker compose restart app worker
 ```
 
-Use restart when routes, Celery tasks, or startup imports changed. For small fixes, sync alone is often enough if `--reload` is active.
+3. Only then run `docker compose exec app pytest`, `curl`, or other checks against containers.
 
-## Do not skip
+## Forbidden
 
-- Do **not** assume `docker compose exec app pytest` or manual curls reflect your latest edits without sync.
-- Do **not** report test/API results from Docker until sync has run in the same session after your edits.
+- Do **not** tell the user to run sync instead of running it yourself when containers are up.
+- Do **not** report Docker test/API results without sync in the **same session after your edits**.
+- Do **not** assume `--reload` or the bind mount picked up new files.
 
-## When containers are down
+## Containers down
 
-If containers are not running, skip sync and note that verification requires `make up` first.
+If `docker compose ps` shows no running app: skip sync, say verification needs `make up` first.
 
-## Long-term alternative
+## Long-term
 
-Moving the repo out of iCloud (e.g. `~/Projects/prikazy`) removes this issue; until then, sync is mandatory.
+Moving the repo out of iCloud (e.g. `~/Projects/prikazy`) removes this step.

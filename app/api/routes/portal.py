@@ -34,9 +34,11 @@ from app.web.section_access import (
     require_section_manage_links,
     require_section_upload,
     require_section_view,
+    user_allowed_doc_types,
     user_can_use_ai,
 )
 from app.services.ai_query_service import AiQueryService
+from app.services.ai_usage_service import AiUsageService
 from app.services.llm_client import LlmClient
 from app.services.storage_service import ObjectStorageService
 from app.web.file_responses import build_document_file_response
@@ -161,6 +163,7 @@ async def upload_document(
             document_date=document_date,
             counterparty_name=counterparty_name.strip() if counterparty_name else None,
             title=title.strip() if title else None,
+            created_by_user_id=user.id,
         ),
         enqueue_ocr_job=process_ocr_job.delay,
     )
@@ -460,10 +463,15 @@ def _render_ai_page(
     user: WebUserDep,
     *,
     question: str = "",
+    last_question: str = "",
     answer: str | None = None,
     sources: list | None = None,
+    documents: list | None = None,
     error_code: str | None = None,
     llm_ready: bool = True,
+    context_question: str = "",
+    context_answer: str = "",
+    ai_quota=None,
 ):
     return templates.TemplateResponse(
         request,
@@ -471,22 +479,28 @@ def _render_ai_page(
         {
             "user": user,
             "question": question,
+            "last_question": last_question,
             "answer": answer,
             "sources": sources or [],
+            "documents": documents or [],
+            "ai_quota": ai_quota,
             "error_message": user_error_label(error_code) if error_code else None,
             "llm_ready": llm_ready,
             "current_section": "all",
+            "context_question": context_question,
+            "context_answer": context_answer,
             **_portal_ctx(request, user),
         },
     )
 
 
 @router.get("/ai")
-def ai_page(request: Request, user: WebUserDep, settings: SettingsDep):
+def ai_page(request: Request, user: WebUserDep, session: DbSessionDep, settings: SettingsDep):
     if not user_can_use_ai(user):
         return RedirectResponse(url="/portal/?error=ai_access_denied", status_code=status.HTTP_303_SEE_OTHER)
     llm_ready = LlmClient(settings).is_configured
-    return _render_ai_page(request, user, llm_ready=llm_ready)
+    ai_quota = AiUsageService(session, settings).get_quota_status(user)
+    return _render_ai_page(request, user, llm_ready=llm_ready, ai_quota=ai_quota)
 
 
 @router.post("/ai")
@@ -495,15 +509,22 @@ def ai_ask(
     user: WebUserDep,
     session: DbSessionDep,
     settings: SettingsDep,
-    question: Annotated[str, Form()],
     csrf_token: Annotated[str, Form()],
+    question: Annotated[str, Form()] = "",
+    follow_up_question: Annotated[str, Form()] = "",
+    context_question: Annotated[str, Form()] = "",
+    context_answer: Annotated[str, Form()] = "",
 ):
     verify_csrf_form(request, csrf_token)
     if not user_can_use_ai(user):
         return RedirectResponse(url="/portal/?error=ai_access_denied", status_code=status.HTTP_303_SEE_OTHER)
 
     llm_ready = LlmClient(settings).is_configured
-    cleaned_question = question.strip()
+    usage_service = AiUsageService(session, settings)
+    ai_quota = usage_service.get_quota_status(user)
+    cleaned_follow_up = follow_up_question.strip()
+    cleaned_question = (cleaned_follow_up or question).strip()
+    is_follow_up = bool(cleaned_follow_up)
     if not cleaned_question:
         return _render_ai_page(
             request,
@@ -511,38 +532,71 @@ def ai_ask(
             question=question,
             error_code="empty_question",
             llm_ready=llm_ready,
+            ai_quota=ai_quota,
         )
     if not llm_ready:
         return _render_ai_page(
             request,
             user,
-            question=cleaned_question,
+            question="" if is_follow_up else cleaned_question,
+            last_question=cleaned_question if is_follow_up else "",
             error_code="llm_not_configured",
             llm_ready=False,
+            ai_quota=ai_quota,
         )
 
     require_ai_access(user)
+    try:
+        ai_quota = usage_service.consume_query(user, question=cleaned_question)
+    except ApplicationError as exc:
+        return _render_ai_page(
+            request,
+            user,
+            question="" if is_follow_up else cleaned_question,
+            last_question=cleaned_question if is_follow_up else "",
+            context_question=context_question,
+            context_answer=context_answer,
+            error_code=exc.code,
+            llm_ready=llm_ready,
+            ai_quota=usage_service.get_quota_status(user),
+        )
     service = AiQueryService(session, settings)
+    context = None
+    if is_follow_up and context_question.strip() and context_answer.strip():
+        context = [
+            {"role": "user", "content": context_question.strip()},
+            {"role": "assistant", "content": context_answer.strip()},
+        ]
     try:
         response = service.ask(
             tenant_id=user.tenant_id,
             question=cleaned_question,
             allowed_doc_types=ai_allowed_doc_types(user),
+            context=context,
         )
     except ApplicationError as exc:
         return _render_ai_page(
             request,
             user,
-            question=cleaned_question,
+            question="" if is_follow_up else cleaned_question,
+            last_question=cleaned_question if is_follow_up else "",
+            context_question=context_question,
+            context_answer=context_answer,
             error_code=exc.code,
             llm_ready=llm_ready,
+            ai_quota=ai_quota,
         )
 
     return _render_ai_page(
         request,
         user,
-        question=cleaned_question,
+        question="",
+        last_question=cleaned_question,
         answer=response.answer,
         sources=response.sources,
+        documents=response.documents,
+        context_question=cleaned_question,
+        context_answer=response.answer,
         llm_ready=llm_ready,
+        ai_quota=ai_quota,
     )

@@ -59,6 +59,7 @@ a:hover { text-decoration: underline; }
 .alert { padding: .85em 1em; border-radius: var(--radius); margin-bottom: 1em; font-size: .95em; }
 .alert-error { background: var(--color-error-bg); color: var(--color-error); }
 .alert-success { background: var(--color-success-bg); color: var(--color-success); }
+.alert-warn { background: #fffbeb; color: #b45309; }
 
 .inline-form { display: inline; }
 

@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
@@ -7,6 +8,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.document import Document
 from app.models.processing_job import ProcessingJob
 from app.repositories.search import SearchRepository
+
+TrashFilter = Literal["active", "trashed", "any"]
 
 
 class DocumentRepository:
@@ -17,19 +20,55 @@ class DocumentRepository:
         self.session.add(document)
         return document
 
-    def get_for_tenant(self, document_id: UUID, tenant_id: UUID) -> Document | None:
+    def get_for_tenant(
+        self,
+        document_id: UUID,
+        tenant_id: UUID,
+        *,
+        trash: TrashFilter = "active",
+    ) -> Document | None:
+        filters = [Document.id == document_id, Document.tenant_id == tenant_id]
+        filters.extend(self._trash_filters(trash))
         return self.session.scalars(
             select(Document)
-            .options(joinedload(Document.storage_object))
-            .where(Document.id == document_id, Document.tenant_id == tenant_id)
+            .options(joinedload(Document.storage_object), joinedload(Document.created_by_user))
+            .where(*filters)
             .order_by(Document.created_at.desc())
             .limit(1)
         ).first()
 
+    def count_trashed_for_tenant(self, tenant_id: UUID) -> int:
+        return (
+            self.session.scalar(
+                select(func.count())
+                .select_from(Document)
+                .where(Document.tenant_id == tenant_id, Document.archived_at.isnot(None))
+            )
+            or 0
+        )
+
+    def list_trashed_for_tenant(
+        self,
+        *,
+        tenant_id: UUID,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[Document], int]:
+        return self.list_for_tenant(
+            tenant_id=tenant_id,
+            trash="trashed",
+            limit=limit,
+            offset=offset,
+        )
+
     def find_duplicate(self, tenant_id: UUID, sha256: str) -> Document | None:
         return self.session.scalars(
             select(Document)
-            .where(Document.tenant_id == tenant_id, Document.sha256 == sha256)
+            .where(
+                Document.tenant_id == tenant_id,
+                Document.sha256 == sha256,
+                Document.archived_at.is_(None),
+            )
             .order_by(Document.created_at.desc())
             .limit(1)
         ).first()
@@ -47,6 +86,7 @@ class DocumentRepository:
         created_at_to: datetime | None = None,
         counterparty_name: str | None = None,
         text_query: str | None = None,
+        trash: TrashFilter = "active",
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[Document], int]:
@@ -62,6 +102,7 @@ class DocumentRepository:
                 created_at_from=created_at_from,
                 created_at_to=created_at_to,
                 counterparty_name=counterparty_name,
+                trash=trash,
                 limit=limit,
                 offset=offset,
             )
@@ -77,8 +118,12 @@ class DocumentRepository:
             created_at_to=created_at_to,
             counterparty_name=counterparty_name,
             text_query=text_query,
+            trash=trash,
         )
-        base_query = select(Document).options(joinedload(Document.storage_object)).where(*filters)
+        base_query = select(Document).options(
+            joinedload(Document.storage_object),
+            joinedload(Document.created_by_user),
+        ).where(*filters)
         total = self.session.scalar(select(func.count()).select_from(Document).where(*filters)) or 0
         items = list(
             self.session.scalars(
@@ -100,6 +145,7 @@ class DocumentRepository:
         created_at_from: datetime | None,
         created_at_to: datetime | None,
         counterparty_name: str | None,
+        trash: TrashFilter,
         limit: int,
         offset: int,
     ) -> tuple[list[Document], int]:
@@ -114,6 +160,8 @@ class DocumentRepository:
             created_at_from=created_at_from,
             created_at_to=created_at_to,
             counterparty_name=counterparty_name,
+            include_trashed=trash == "trashed",
+            active_only=trash == "active",
             limit=limit,
             offset=offset,
         )
@@ -121,11 +169,16 @@ class DocumentRepository:
             return [], total
 
         document_ids = [row["document_id"] for row in rows]
+        doc_filters = [Document.tenant_id == tenant_id, Document.id.in_(document_ids)]
+        doc_filters.extend(self._trash_filters(trash))
         documents = list(
             self.session.scalars(
                 select(Document)
-                .options(joinedload(Document.storage_object))
-                .where(Document.tenant_id == tenant_id, Document.id.in_(document_ids))
+                .options(
+                    joinedload(Document.storage_object),
+                    joinedload(Document.created_by_user),
+                )
+                .where(*doc_filters)
             )
         )
         documents_by_id = {document.id: document for document in documents}
@@ -153,8 +206,9 @@ class DocumentRepository:
         created_at_to: datetime | None,
         counterparty_name: str | None,
         text_query: str | None,
+        trash: TrashFilter = "active",
     ) -> list:
-        filters = [Document.tenant_id == tenant_id]
+        filters = [Document.tenant_id == tenant_id, *self._trash_filters(trash)]
         if doc_types:
             filters.append(Document.doc_type.in_(doc_types))
         elif doc_type:
@@ -180,6 +234,14 @@ class DocumentRepository:
                 )
             )
         return filters
+
+    @staticmethod
+    def _trash_filters(trash: TrashFilter) -> list:
+        if trash == "active":
+            return [Document.archived_at.is_(None)]
+        if trash == "trashed":
+            return [Document.archived_at.isnot(None)]
+        return []
 
     def latest_job_for_document(self, document: Document) -> ProcessingJob | None:
         return self.session.scalars(

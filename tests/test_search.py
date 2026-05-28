@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app.repositories.search import SearchRepository
+from app.repositories.search import SearchRepository, token_like_pattern, tokenize_search_query
 
 
 class FakeResult:
@@ -64,3 +64,19 @@ def test_search_query_uses_postgresql_full_text_and_filters():
     assert "d.doc_type = ANY(:doc_types)" in items_sql
     assert params["doc_types"] == ["prikaz", "lna"]
     assert params["counterparty_name"] == "%ACME%"
+    assert params["token_0"] == "%acme%"
+    assert params["token_1"] == "%invoic%"
+
+
+def test_tokenize_search_query_deduplicates_short_words():
+    assert tokenize_search_query("тележка для продажи мороженого") == [
+        "тележка",
+        "для",
+        "продажи",
+        "мороженого",
+    ]
+
+
+def test_token_like_pattern_uses_prefix_stem_for_long_tokens():
+    assert token_like_pattern("тележка") == "%тележк%"
+    assert token_like_pattern("для") == "%для%"

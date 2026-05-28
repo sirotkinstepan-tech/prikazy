@@ -13,6 +13,8 @@ def test_validate_doc_type_accepts_known_values():
     assert validate_doc_type("internal_contract") == "internal_contract"
     assert validate_doc_type("external_contract") == "external_contract"
     assert validate_doc_type("lna") == "lna"
+    assert validate_doc_type("technolog") == "technolog"
+    assert validate_doc_type("kadry") == "kadry"
 
 
 def test_validate_doc_type_rejects_unknown_values():
@@ -56,4 +58,6 @@ def test_document_type_enum_values():
         "internal_contract",
         "external_contract",
         "lna",
+        "technolog",
+        "kadry",
     }

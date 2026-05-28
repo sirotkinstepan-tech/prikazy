@@ -1,16 +1,53 @@
 {% extends "base_admin.html" %}
-{% block title %}Документы{% endblock %}
-{% block page_title %}Документы{% endblock %}
+{% block title %}{% if trash_view %}Корзина{% else %}Документы{% endif %}{% endblock %}
+{% block page_title %}{% if trash_view %}Корзина{% else %}Документы{% endif %}{% endblock %}
 {% block topbar_actions %}
+{% if trash_view and total > 0 %}
+<form method="post" action="/admin/documents/trash/empty" class="inline-form" onsubmit="return confirm('Очистить корзину? Все {{ total }} документов будут удалены безвозвратно.');">
+  {% include "csrf_field.html" %}
+  <button type="submit" class="btn btn-secondary btn-sm text-error">Очистить корзину</button>
+</form>
+{% elif not trash_view %}
 <a href="/admin/upload" class="btn btn-primary btn-sm">+ Загрузить</a>
+{% endif %}
 {% endblock %}
 {% block content %}
+<nav class="admin-tabs" aria-label="Разделы документов">
+  <a href="/admin/documents" class="{% if not trash_view %}active{% endif %}">Документы</a>
+  <a href="/admin/documents/trash" class="{% if trash_view %}active{% endif %}">
+    Корзина{% if trash_count %} ({{ trash_count }}){% endif %}
+  </a>
+</nav>
+
+{% if success == "trashed" %}
+<div class="alert alert-success">Документ перемещён в корзину</div>
+{% elif success == "restored" %}
+<div class="alert alert-success">Документ восстановлен</div>
+{% elif success == "purged" %}
+<div class="alert alert-success">Документ удалён безвозвратно</div>
+{% elif success == "emptied" %}
+<div class="alert alert-success">Корзина очищена{% if request.query_params.get('count') %} ({{ request.query_params.get('count') }} док.){% endif %}</div>
+{% elif success == "deleted" %}
+<div class="alert alert-success">Документ перемещён в корзину</div>
+{% endif %}
+{% if error == "document_not_found" %}
+<div class="alert alert-error">Документ не найден</div>
+{% elif error %}
+<div class="alert alert-error">Не удалось выполнить действие</div>
+{% endif %}
+
+{% if trash_view %}
+<p class="muted">
+  {{ total }} в корзине. Восстановление вернёт документ в общий список.
+  «Удалить навсегда» и «Очистить корзину» удаляют файлы и все связанные данные.
+</p>
+{% else %}
 <form method="get" class="admin-filters">
   <input type="text" name="counterparty_name" value="{{ filters.counterparty_name }}" placeholder="Контрагент">
   <input type="text" name="doc_type" value="{{ filters.doc_type }}" placeholder="Тип">
   <select name="status">
     <option value="">Все статусы</option>
-    {% for s in ["uploaded","queued","processing","processed","validated","failed","archived"] %}
+    {% for s in ["uploaded","queued","processing","processed","validated","failed"] %}
     <option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ status_label(s) }}</option>
     {% endfor %}
   </select>
@@ -18,8 +55,8 @@
   <input type="date" name="document_date_to" value="{{ filters.document_date_to or '' }}">
   <button type="submit" class="btn btn-secondary btn-sm">Фильтр</button>
 </form>
-
 <p class="muted">{{ total }} документов</p>
+{% endif %}
 
 <table class="admin-table admin-table-full">
   <thead>
@@ -30,24 +67,66 @@
       <th>Контрагент</th>
       <th>Статус</th>
       <th>Дата док.</th>
-      <th>Загружен</th>
+      <th>Загрузил</th>
+      <th>{% if trash_view %}В корзине{% else %}Загружен{% endif %}</th>
       <th>Размер</th>
+      <th></th>
     </tr>
   </thead>
   <tbody>
     {% for doc in documents %}
-    <tr>
+    <tr{% if trash_view %} class="row-inactive"{% endif %}>
       <td><code class="mono-sm">{{ doc.id.hex[:8] }}…</code></td>
-      <td><a href="/admin/documents/{{ doc.id }}">{{ doc.title or doc.source_filename or "—" }}</a></td>
+      <td>
+        {% if trash_view %}
+        {{ doc.title or doc.source_filename or "—" }}
+        {% else %}
+        <a href="/admin/documents/{{ doc.id }}">{{ doc.title or doc.source_filename or "—" }}</a>
+        {% endif %}
+      </td>
       <td><code>{{ doc.doc_type or "—" }}</code></td>
       <td>{{ doc.counterparty_name or "—" }}</td>
       <td><span class="badge {{ status_class(doc.status) }}">{{ status_label(doc.status) }}</span></td>
       <td>{{ format_date(doc.document_date) }}</td>
-      <td>{{ format_date(doc.created_at) }}</td>
+      <td>
+        {% if doc.created_by_user %}
+        <span title="{{ doc.created_by_user.email }}">{{ doc.created_by_user.full_name }}</span>
+        {% else %}
+        —
+        {% endif %}
+      </td>
+      <td>{{ format_date(doc.archived_at if trash_view else doc.created_at) }}</td>
       <td>{{ format_size(doc.size_bytes) }}</td>
+      <td class="actions-cell">
+        {% if trash_view %}
+        <form method="post" action="/admin/documents/trash/{{ doc.id }}/restore" class="inline-form">
+          {% include "csrf_field.html" %}
+          <button type="submit" class="btn btn-ghost btn-sm">Восстановить</button>
+        </form>
+        <form
+          method="post"
+          action="/admin/documents/trash/{{ doc.id }}/purge"
+          class="inline-form"
+          onsubmit="return confirm('Удалить этот документ безвозвратно?');"
+        >
+          {% include "csrf_field.html" %}
+          <button type="submit" class="btn btn-ghost btn-sm text-error">Удалить навсегда</button>
+        </form>
+        {% else %}
+        <form
+          method="post"
+          action="/admin/documents/{{ doc.id }}/delete"
+          class="inline-form"
+          onsubmit="return confirm('Переместить документ в корзину?');"
+        >
+          {% include "csrf_field.html" %}
+          <button type="submit" class="btn btn-ghost btn-sm text-error">В корзину</button>
+        </form>
+        {% endif %}
+      </td>
     </tr>
     {% else %}
-    <tr><td colspan="8" class="muted">Нет документов</td></tr>
+    <tr><td colspan="10" class="muted">{% if trash_view %}Корзина пуста{% else %}Нет документов{% endif %}</td></tr>
     {% endfor %}
   </tbody>
 </table>
