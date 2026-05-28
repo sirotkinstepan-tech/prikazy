@@ -94,7 +94,7 @@ You can override metadata:
 make upload SAMPLE=samples/sample.pdf DOC_TYPE=internal_contract COUNTERPARTY=ACME
 ```
 
-Allowed `DOC_TYPE` values: `prikaz`, `internal_contract`, `external_contract`, `lna`.
+Allowed `DOC_TYPE` values: `prikaz`, `internal_contract`, `external_contract`, `lna`, `technolog`, `kadry`, `incoming_correspondence`, `outgoing_correspondence`.
 
 The response should include `document_id`, `job_id`, and status `queued`.
 
