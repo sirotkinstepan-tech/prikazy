@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.api.routes import admin_ui, ai_query, auth_ui, documents, health, portal, search, sections, viewer
+from app.api.routes import admin_ui, ai_query, api_docs, auth_ui, documents, health, portal, search, sections, viewer
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
@@ -17,14 +17,15 @@ def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
 
-    show_docs = settings.docs_enabled and not settings.is_production
+    show_docs = settings.docs_enabled
+    public_docs = show_docs and not settings.is_production
     app = FastAPI(
         title=settings.app_name,
         debug=settings.app_debug,
         version="0.1.0",
-        docs_url="/docs" if show_docs else None,
-        redoc_url="/redoc" if show_docs else None,
-        openapi_url="/openapi.json" if show_docs else None,
+        docs_url="/docs" if public_docs else None,
+        redoc_url="/redoc" if public_docs else None,
+        openapi_url="/openapi.json" if public_docs else None,
     )
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RateLimitMiddleware, settings=settings)
@@ -35,6 +36,9 @@ def create_app() -> FastAPI:
         same_site="lax",
     )
     register_exception_handlers(app)
+
+    if show_docs and settings.is_production:
+        api_docs.register_protected_api_docs(app, settings)
 
     if STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

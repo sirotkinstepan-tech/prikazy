@@ -101,7 +101,18 @@ def test_viewer_requires_login(client: TestClient):
     assert response.headers["location"] == "/login"
 
 
-def test_openapi_disabled_in_production(monkeypatch):
+def test_openapi_disabled_when_docs_disabled(monkeypatch):
+    from app.core.config import get_settings
+
+    prod_settings = Settings(app_env="production", docs_enabled=False)
+    get_settings.cache_clear()
+    monkeypatch.setattr("app.core.config.get_settings", lambda: prod_settings)
+    monkeypatch.setattr("app.main.get_settings", lambda: prod_settings)
+    prod_app = create_app()
+    assert prod_app.openapi_url is None
+
+
+def test_openapi_protected_in_production(monkeypatch):
     from app.core.config import get_settings
 
     prod_settings = Settings(app_env="production", docs_enabled=True)
@@ -110,3 +121,6 @@ def test_openapi_disabled_in_production(monkeypatch):
     monkeypatch.setattr("app.main.get_settings", lambda: prod_settings)
     prod_app = create_app()
     assert prod_app.openapi_url is None
+    paths = {route.path for route in prod_app.routes}
+    assert "/docs" in paths
+    assert "/openapi.json" in paths

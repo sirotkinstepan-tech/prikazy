@@ -5,6 +5,7 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-https://github.com/sirotkinstepan-tech/prikazy.git}"
 APP_DIR="${APP_DIR:-/opt/prikazy}"
 BRANCH="${BRANCH:-main}"
+PUBLIC_DOMAIN="${PUBLIC_DOMAIN:-kmk-base.ru}"
 PUBLIC_HOST="${PUBLIC_HOST:-}"
 
 if [[ -z "$PUBLIC_HOST" ]]; then
@@ -12,6 +13,14 @@ if [[ -z "$PUBLIC_HOST" ]]; then
 fi
 if [[ -z "$PUBLIC_HOST" ]]; then
   PUBLIC_HOST="$(hostname -I | awk '{print $1}')"
+fi
+
+if [[ -n "$PUBLIC_DOMAIN" ]]; then
+  PUBLIC_API_BASE_URL="https://${PUBLIC_DOMAIN}"
+  SESSION_HTTPS_ONLY="true"
+else
+  PUBLIC_API_BASE_URL="http://${PUBLIC_HOST}:8001"
+  SESSION_HTTPS_ONLY="false"
 fi
 
 echo "==> Installing Docker (if needed)"
@@ -46,8 +55,11 @@ SESSION_SECRET="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')
 POSTGRES_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
 S3_SECRET="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
 
+export PUBLIC_HOST PUBLIC_DOMAIN PUBLIC_API_BASE_URL SESSION_HTTPS_ONLY
+
 python3 <<PY
 from pathlib import Path
+import os
 import re
 
 path = Path(".env")
@@ -55,12 +67,12 @@ text = path.read_text()
 updates = {
     "APP_ENV": "production",
     "APP_DEBUG": "false",
-    "DOCS_ENABLED": "false",
-    "SESSION_HTTPS_ONLY": "false",
-    "PUBLIC_API_BASE_URL": f"http://{PUBLIC_HOST}:8001",
+    "DOCS_ENABLED": "true",
+    "SESSION_HTTPS_ONLY": os.environ.get("SESSION_HTTPS_ONLY", "false"),
+    "PUBLIC_API_BASE_URL": os.environ.get("PUBLIC_API_BASE_URL", "http://localhost:8001"),
     "SESSION_SECRET": "$SESSION_SECRET",
     "POSTGRES_PASSWORD": "$POSTGRES_PASSWORD",
-    "DATABASE_URL": f"postgresql+psycopg://prikazy:{POSTGRES_PASSWORD}@postgres:5432/prikazy",
+    "DATABASE_URL": "postgresql+psycopg://prikazy:$POSTGRES_PASSWORD@postgres:5432/prikazy",
     "S3_SECRET_ACCESS_KEY": "$S3_SECRET",
 }
 for key, val in updates.items():
@@ -91,5 +103,10 @@ echo "==> Health check"
 curl -fsS "http://127.0.0.1:8001/health"
 
 echo ""
-echo "Deployed. Portal: http://${PUBLIC_HOST}:8001/portal/"
+if [[ -n "$PUBLIC_DOMAIN" ]]; then
+  echo "Deployed. Portal: https://${PUBLIC_DOMAIN}/portal/"
+  echo "Run domain setup: sudo PUBLIC_DOMAIN=${PUBLIC_DOMAIN} bash scripts/setup-domain.sh"
+else
+  echo "Deployed. Portal: http://${PUBLIC_HOST}:8001/portal/"
+fi
 echo "Admin login: admin@example.com / admin123 (change after first login)"

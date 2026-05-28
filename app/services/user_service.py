@@ -192,7 +192,7 @@ class UserService:
             raise ApplicationError(
                 f"Пароль должен быть не короче {self.MIN_PASSWORD_LENGTH} символов",
                 status_code=400,
-                code="invalid_password",
+                code="password_too_short",
             )
         has_letter = any(char.isalpha() for char in password)
         has_digit = any(char.isdigit() for char in password)
@@ -200,7 +200,7 @@ class UserService:
             raise ApplicationError(
                 "Пароль должен содержать буквы и цифры",
                 status_code=400,
-                code="invalid_password",
+                code="password_needs_letter_and_digit",
             )
 
     @staticmethod

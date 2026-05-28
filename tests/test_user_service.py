@@ -35,7 +35,7 @@ class FakeUserRepository:
         return None
 
 
-def test_create_user_validates_password():
+def test_create_user_validates_password_length():
     service = UserService(FakeSession())
     service.users = FakeUserRepository()
 
@@ -49,7 +49,24 @@ def test_create_user_validates_password():
                 role=UserRole.EMPLOYEE,
             )
         )
-    assert exc.value.code == "invalid_password"
+    assert exc.value.code == "password_too_short"
+
+
+def test_create_user_validates_password_letters_and_digits():
+    service = UserService(FakeSession())
+    service.users = FakeUserRepository()
+
+    with pytest.raises(ApplicationError) as exc:
+        service.create_user(
+            CreateUserCommand(
+                tenant_id=uuid4(),
+                email="new2@example.com",
+                password="123456789",
+                full_name="Test User",
+                role=UserRole.EMPLOYEE,
+            )
+        )
+    assert exc.value.code == "password_needs_letter_and_digit"
 
 
 def test_create_user_rejects_duplicate_email():

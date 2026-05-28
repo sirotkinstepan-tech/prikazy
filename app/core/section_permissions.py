@@ -72,7 +72,7 @@ def level_can_download(level: SectionAccessLevel) -> bool:
 
 def default_employee_section_access() -> dict[str, SectionAccessLevel]:
     """Значения по умолчанию в форме создания пользователя."""
-    return {doc_type.value: SectionAccessLevel.VIEW_ONLY for doc_type in all_document_types()}
+    return {doc_type.value: SectionAccessLevel.NONE for doc_type in all_document_types()}
 
 
 def empty_employee_section_access() -> dict[str, SectionAccessLevel]:
