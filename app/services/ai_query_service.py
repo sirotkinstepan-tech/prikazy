@@ -26,6 +26,7 @@ class AiQueryService:
         tenant_id: UUID,
         question: str,
         allowed_doc_types: list[str] | None = None,
+        context: list[dict] | None = None,
     ) -> AiQueryResponse:
         question = question.strip()
         if not question:
@@ -36,10 +37,10 @@ class AiQueryService:
             )
 
         executor = AiDbToolExecutor(self.session, tenant_id, allowed_doc_types)
-        messages: list[dict] = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": question},
-        ]
+        messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        if context:
+            messages.extend(context)
+        messages.append({"role": "user", "content": question})
         sources: list[AiQuerySource] = []
 
         for _ in range(self.settings.llm_max_tool_rounds):
@@ -94,6 +95,10 @@ class AiQueryService:
 
 
 def _result_count(result: dict) -> int:
+    if "returned" in result:
+        return int(result["returned"])
+    if "grand_total" in result:
+        return int(result["grand_total"])
     if "total" in result:
         return int(result["total"])
     if "groups" in result:

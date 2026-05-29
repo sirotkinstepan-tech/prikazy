@@ -35,6 +35,7 @@ class AiQueryRepository:
         field_name: str | None = None,
         field_value: str | None = None,
         doc_type: str | None = None,
+        doc_types: list[str] | None = None,
         status: str | None = None,
         limit: int = 20,
         offset: int = 0,
@@ -51,7 +52,10 @@ class AiQueryRepository:
         if field_value:
             filters.append("ef.field_value ILIKE :field_value")
             params["field_value"] = f"%{field_value}%"
-        if doc_type:
+        if doc_types:
+            filters.append("d.doc_type = ANY(:doc_types)")
+            params["doc_types"] = doc_types
+        elif doc_type:
             filters.append("d.doc_type = :doc_type")
             params["doc_type"] = doc_type
         if status:
@@ -113,6 +117,7 @@ class AiQueryRepository:
         tenant_id: UUID,
         group_by: str,
         doc_type: str | None = None,
+        doc_types: list[str] | None = None,
         status: str | None = None,
         document_date_from: date | None = None,
         document_date_to: date | None = None,
@@ -122,9 +127,12 @@ class AiQueryRepository:
         if group_expr is None:
             raise ValueError(f"Unsupported group_by: {group_by}")
 
-        filters = ["d.tenant_id = :tenant_id"]
+        filters = ["d.tenant_id = :tenant_id", "d.archived_at IS NULL"]
         params: dict = {"tenant_id": tenant_id, "limit": limit}
-        if doc_type:
+        if doc_types:
+            filters.append("d.doc_type = ANY(:doc_types)")
+            params["doc_types"] = doc_types
+        elif doc_type:
             filters.append("d.doc_type = :doc_type")
             params["doc_type"] = doc_type
         if status:
@@ -158,10 +166,14 @@ class AiQueryRepository:
         *,
         tenant_id: UUID,
         name_pattern: str | None = None,
+        doc_types: list[str] | None = None,
         limit: int = 100,
     ) -> list[str]:
         filters = ["d.tenant_id = :tenant_id"]
         params: dict = {"tenant_id": tenant_id, "limit": limit}
+        if doc_types:
+            filters.append("d.doc_type = ANY(:doc_types)")
+            params["doc_types"] = doc_types
         if name_pattern:
             filters.append("ef.field_name ILIKE :name_pattern")
             params["name_pattern"] = f"%{name_pattern}%"
