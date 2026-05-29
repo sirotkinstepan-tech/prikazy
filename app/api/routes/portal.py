@@ -594,7 +594,6 @@ def ai_ask(
         last_question=cleaned_question,
         answer=response.answer,
         sources=response.sources,
-        documents=response.documents,
         context_question=cleaned_question,
         context_answer=response.answer,
         llm_ready=llm_ready,
