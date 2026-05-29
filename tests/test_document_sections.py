@@ -2,6 +2,7 @@ import pytest
 
 from app.core.document_sections import (
     resolve_doc_type_filters,
+    resolve_doc_type_slug,
     validate_doc_type,
 )
 from app.core.errors import ApplicationError
@@ -17,6 +18,12 @@ def test_validate_doc_type_accepts_known_values():
     assert validate_doc_type("kadry") == "kadry"
     assert validate_doc_type("incoming_correspondence") == "incoming_correspondence"
     assert validate_doc_type("outgoing_correspondence") == "outgoing_correspondence"
+
+
+def test_resolve_doc_type_slug_accepts_labels():
+    assert resolve_doc_type_slug("Приказы") == "prikaz"
+    assert resolve_doc_type_slug("prikaz") == "prikaz"
+    assert resolve_doc_type_slug("Входящая корреспонденция") == "incoming_correspondence"
 
 
 def test_validate_doc_type_rejects_unknown_values():

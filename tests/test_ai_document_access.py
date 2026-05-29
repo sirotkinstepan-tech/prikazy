@@ -157,3 +157,27 @@ def test_list_field_names_restricts_to_allowed_sections():
 
     _, params = session.calls[0]
     assert params["doc_types"] == [DocumentType.PRIKAZ.value]
+
+
+def test_list_documents_total_independent_of_limit():
+    from unittest.mock import MagicMock
+
+    session = FakeSession()
+    executor = AiDbToolExecutor(session, uuid4())
+    document = MagicMock()
+    document.id = uuid4()
+    document.created_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+    document.status = "processed"
+    document.doc_type = DocumentType.PRIKAZ.value
+    document.document_date = None
+    document.counterparty_name = None
+    document.title = "Приказ"
+    document.source_filename = "prikaz.pdf"
+    executor.document_repository = MagicMock()
+    executor.document_repository.list_for_tenant.return_value = ([document], 9)
+
+    result = executor.execute("list_documents", {"limit": 1})
+
+    assert result["total"] == 9
+    assert result["returned"] == 1
+    assert result["truncated"] is True

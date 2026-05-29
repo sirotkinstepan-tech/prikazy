@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.document_sections import resolve_doc_type_slug
 from app.core.errors import ApplicationError
 from app.repositories.ai_query import AiQueryRepository
 from app.repositories.documents import DocumentRepository
@@ -42,7 +43,8 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "name": "list_documents",
             "description": (
                 "Список документов по метаданным: тип, статус, дата, контрагент. "
-                "Без полнотекстового поиска."
+                "Без полнотекстового поиска. "
+                "Поле total — общее число документов по фильтрам; returned — сколько строк в items (limit)."
             ),
             "parameters": {
                 "type": "object",
@@ -89,7 +91,8 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "group_documents",
             "description": (
-                "Группировка документов: количество по типу, статусу, контрагенту или месяцу даты."
+                "Группировка документов: количество по типу, статусу, контрагенту или месяцу даты. "
+                "Для общего числа документов используй grand_total (сумма по группам)."
             ),
             "parameters": {
                 "type": "object",
@@ -145,8 +148,14 @@ SYSTEM_PROMPT = """\
 4. Если данных нет — честно скажи об этом.
 5. Отвечай на том же языке, что и вопрос пользователя.
 
+Подсчёт документов:
+- «Сколько всего документов» → group_documents (group_by=status или doc_type), бери grand_total.
+- search_documents.total — только совпадения с текстовым запросом, не общее число в базе.
+- list_documents.total — общее число по фильтрам; returned/items — только текущая страница (limit).
+- doc_type передавай slug: prikaz, lna, external_contract, incoming_correspondence и т.д.
+
 О домене:
-- Документы — это приказы и похожие PDF/сканы.
+- Документы — приказы, договоры, ЛНА, корреспонденция и другие разделы.
 - Ответственные, номера, подразделения могут храниться в extracted_fields.
 - Для «какие приказы у ответственного X» используй find_by_extracted_field.
 - Для «группы приказов» / «сколько по типам» используй group_documents.
@@ -198,10 +207,20 @@ class AiDbToolExecutor:
             return True
         return doc_type in self.allowed_doc_types
 
+    @staticmethod
+    def _pack_list_result(total: int, serialized: list[dict[str, Any]]) -> dict[str, Any]:
+        returned = len(serialized)
+        return {
+            "total": int(total),
+            "returned": returned,
+            "truncated": returned < int(total),
+            "items": serialized,
+        }
+
     def _resolve_doc_type_filters(
         self, params: dict[str, Any]
     ) -> tuple[str | None, list[str] | None, bool]:
-        requested = params.get("doc_type")
+        requested = resolve_doc_type_slug(params.get("doc_type"))
         if requested:
             if not self._doc_type_allowed(requested):
                 return None, None, True
@@ -296,7 +315,7 @@ class AiDbToolExecutor:
         )
         filtered = self._filter_documents(items)
         serialized = [_serialize_document(doc) for doc in filtered]
-        return {"total": len(filtered), "items": serialized}
+        return self._pack_list_result(total, serialized)
 
     def _find_by_extracted_field(self, params: dict[str, Any]) -> dict[str, Any]:
         limit = min(int(params.get("limit", 20)), 50)
@@ -315,7 +334,7 @@ class AiDbToolExecutor:
         )
         filtered = self._filter_rows(items)
         serialized = [_serialize_row(item) for item in filtered]
-        return {"total": len(filtered), "items": serialized}
+        return self._pack_list_result(total, serialized)
 
     def _group_documents(self, params: dict[str, Any]) -> dict[str, Any]:
         group_by = params.get("group_by")

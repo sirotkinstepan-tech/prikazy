@@ -30,6 +30,26 @@ def section_label_for(value: str | None) -> str:
         return value
 
 
+def resolve_doc_type_slug(value: str | None) -> str | None:
+    """Map section slug or Russian label to canonical doc_type value."""
+    if not value:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    try:
+        return DocumentType(cleaned).value
+    except ValueError:
+        pass
+    lowered = cleaned.lower()
+    for doc_type in DocumentType:
+        if doc_type.value.lower() == lowered:
+            return doc_type.value
+        if DOCUMENT_SECTION_LABELS[doc_type].lower() == lowered:
+            return doc_type.value
+    return cleaned
+
+
 def validate_doc_type(value: str) -> str:
     try:
         return DocumentType(value).value
